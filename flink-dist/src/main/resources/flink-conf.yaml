@@ -246,3 +246,8 @@ parallelism.default: 1
 # Interval in milliseconds for refreshing the monitored directories.
 #historyserver.archive.fs.refresh-interval: 10000
 
+
+# For remote debug of JobManager or TaskManager
+env.java.opts: -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5006
+
+
