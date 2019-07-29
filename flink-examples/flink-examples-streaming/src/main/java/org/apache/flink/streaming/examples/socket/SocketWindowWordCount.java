@@ -89,6 +89,7 @@ public class SocketWindowWordCount {
 		// print the results with a single thread, rather than in parallel
 		windowCounts.print().setParallelism(1);
 
+		// 生成StreamGraph的入口
 		env.execute("Socket Window WordCount");
 	}
 

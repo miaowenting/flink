@@ -443,6 +443,8 @@ Flink基于Netty提供了一组监控API用于查询正在运行/最近完成的
 
 ### 5. 源码剖析
 
+#### 5.1 准备工作
+
 编译源码：
 ```
 mvn clean -Drat.ignoreErrors=true install -DskipTests -Dmaven.javadoc.skip=true -Dcheckstyle.skip=true
@@ -469,6 +471,48 @@ env.java.opts: -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=500
 4、在Flink源码中设置断点，连接远程host，然后就可以开始debug跟踪了。
 
 ```
+
+#### 5.2 SocketWindowWordCount
+
+SocketWindowWordCount生成StreamGraph的代码流程图:
+
+![avatar](image/SocketWindowWordCount生成StreamGraph的过程.png)
+
+
+
+
+#### 5.3 StreamTransformation
+
+StreamTransformation的10个子类实现:
+
+![avatar](image/StreamTransformation类图.png)
+
+
+并不是每一个 StreamTransformation 都会转换成 runtime 层中物理操作。有一些只是逻辑概念，比如 union、split/select、partition等。
+如下图所示的转换树，在运行时会优化成下方的操作图:
+
+![avatar](image/Transformation_Tree转Operation_Graph.png)
+
+通过源码也可以发现，UnionTransformation,SplitTransformation,SelectTransformation,
+PartitionTransformation由于不包含具体的操作所以都没有StreamOperator成员变量，而其他StreamTransformation的子类基本上都有。
+
+
+#### 5.4 StreamOperator
+
+DataStream 上的每一个 Transformation 都对应了一个 StreamOperator，StreamOperator是运行时的具体实现，会决定UDF(User-Defined Funtion)的调用方式。
+下图所示为 StreamOperator 的类图:
+
+![avatar](image/StreamOperator类图.png)
+
+可以发现，所有实现类都继承了AbstractStreamOperator。另外除了 project 操作，其他所有可以执行UDF代码的实现类都继承自AbstractUdfStreamOperator，
+该类是封装了UDF的StreamOperator。UDF就是实现了Function接口的类，如MapFunction,FilterFunction
+
+
+
+
+
+
+
 
 ### 6. 维表join
 

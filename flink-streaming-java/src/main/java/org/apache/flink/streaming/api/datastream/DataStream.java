@@ -611,6 +611,7 @@ public class DataStream<T> {
 		TypeInformation<R> outType = TypeExtractor.getFlatMapReturnTypes(clean(flatMapper),
 				getType(), Utils.getCallLocationName(), true);
 
+		// 传入operatorName为Flat Map
 		return transform("Flat Map", outType, new StreamFlatMap<>(clean(flatMapper)));
 
 	}
@@ -1189,6 +1190,7 @@ public class DataStream<T> {
 		@SuppressWarnings({ "unchecked", "rawtypes" })
 		SingleOutputStreamOperator<R> returnStream = new SingleOutputStreamOperator(environment, resultTransform);
 
+		// 填充transformation列表
 		getExecutionEnvironment().addOperator(resultTransform);
 
 		return returnStream;

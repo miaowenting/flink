@@ -89,13 +89,16 @@ public class StreamGraphGenerator {
 
 	// This is used to assign a unique ID to iteration source/sink
 	protected static Integer iterationIdCounter = 0;
+
 	public static int getNewIterationNodeId() {
 		iterationIdCounter--;
 		return iterationIdCounter;
 	}
 
-	// Keep track of which Transforms we have already transformed, this is necessary because
-	// we have loops, i.e. feedback edges.
+	/**
+	 * // Keep track of which Transforms we have already transformed, this is necessary because
+	 * // we have loops, i.e. feedback edges.
+	 */
 	private Map<StreamTransformation<?>, Collection<Integer>> alreadyTransformed;
 
 
@@ -114,10 +117,9 @@ public class StreamGraphGenerator {
 	 * Generates a {@code StreamGraph} by traversing the graph of {@code StreamTransformations}
 	 * starting from the given transformations.
 	 *
-	 * @param env The {@code StreamExecutionEnvironment} that is used to set some parameters of the
-	 *            job
+	 * @param env             The {@code StreamExecutionEnvironment} that is used to set some parameters of the
+	 *                        job
 	 * @param transformations The transformations starting from which to transform the graph
-	 *
 	 * @return The generated {@code StreamGraph}
 	 */
 	public static StreamGraph generate(StreamExecutionEnvironment env, List<StreamTransformation<?>> transformations) {
@@ -128,7 +130,7 @@ public class StreamGraphGenerator {
 	 * This starts the actual transformation, beginning from the sinks.
 	 */
 	private StreamGraph generateInternal(List<StreamTransformation<?>> transformations) {
-		for (StreamTransformation<?> transformation: transformations) {
+		for (StreamTransformation<?> transformation : transformations) {
 			transform(transformation);
 		}
 		return streamGraph;
@@ -142,12 +144,14 @@ public class StreamGraphGenerator {
 	 */
 	private Collection<Integer> transform(StreamTransformation<?> transform) {
 
+		// 判断是否已经转化
 		if (alreadyTransformed.containsKey(transform)) {
 			return alreadyTransformed.get(transform);
 		}
 
 		LOG.debug("Transforming " + transform);
 
+		// 设置StreamTransformation的max parallelism
 		if (transform.getMaxParallelism() <= 0) {
 
 			// if the max parallelism hasn't been set, then first use the job wide max parallelism
@@ -161,6 +165,7 @@ public class StreamGraphGenerator {
 		// call at least once to trigger exceptions about MissingTypeInfo
 		transform.getOutputType();
 
+		// 判断是哪种类型的StreamTransformation,进行相应的转化
 		Collection<Integer> transformedIds;
 		if (transform instanceof OneInputTransformation<?, ?>) {
 			transformedIds = transformOneInputTransform((OneInputTransformation<?, ?>) transform);
@@ -221,7 +226,7 @@ public class StreamGraphGenerator {
 		List<StreamTransformation<T>> inputs = union.getInputs();
 		List<Integer> resultIds = new ArrayList<>();
 
-		for (StreamTransformation<T> input: inputs) {
+		for (StreamTransformation<T> input : inputs) {
 			resultIds.addAll(transform(input));
 		}
 
@@ -239,7 +244,7 @@ public class StreamGraphGenerator {
 		List<Integer> resultIds = new ArrayList<>();
 
 		Collection<Integer> transformedIds = transform(input);
-		for (Integer transformedId: transformedIds) {
+		for (Integer transformedId : transformedIds) {
 			int virtualId = StreamTransformation.getNewNodeId();
 			streamGraph.addVirtualPartitionNode(transformedId, virtualId, partition.getPartitioner());
 			resultIds.add(virtualId);
@@ -385,10 +390,10 @@ public class StreamGraphGenerator {
 		for (StreamTransformation<T> feedbackEdge : iterate.getFeedbackEdges()) {
 			Collection<Integer> feedbackIds = transform(feedbackEdge);
 			allFeedbackIds.addAll(feedbackIds);
-			for (Integer feedbackId: feedbackIds) {
+			for (Integer feedbackId : feedbackIds) {
 				streamGraph.addEdge(feedbackId,
-						itSink.getId(),
-						0
+					itSink.getId(),
+					0
 				);
 			}
 		}
@@ -420,14 +425,14 @@ public class StreamGraphGenerator {
 
 		// create the fake iteration source/sink pair
 		Tuple2<StreamNode, StreamNode> itSourceAndSink = streamGraph.createIterationSourceAndSink(
-				coIterate.getId(),
-				getNewIterationNodeId(),
-				getNewIterationNodeId(),
-				coIterate.getWaitTime(),
-				coIterate.getParallelism(),
-				coIterate.getMaxParallelism(),
-				coIterate.getMinResources(),
-				coIterate.getPreferredResources());
+			coIterate.getId(),
+			getNewIterationNodeId(),
+			getNewIterationNodeId(),
+			coIterate.getWaitTime(),
+			coIterate.getParallelism(),
+			coIterate.getMaxParallelism(),
+			coIterate.getMinResources(),
+			coIterate.getPreferredResources());
 
 		StreamNode itSource = itSourceAndSink.f0;
 		StreamNode itSink = itSourceAndSink.f1;
@@ -448,10 +453,10 @@ public class StreamGraphGenerator {
 		for (StreamTransformation<F> feedbackEdge : coIterate.getFeedbackEdges()) {
 			Collection<Integer> feedbackIds = transform(feedbackEdge);
 			allFeedbackIds.addAll(feedbackIds);
-			for (Integer feedbackId: feedbackIds) {
+			for (Integer feedbackId : feedbackIds) {
 				streamGraph.addEdge(feedbackId,
-						itSink.getId(),
-						0
+					itSink.getId(),
+					0
 				);
 			}
 		}
@@ -471,12 +476,12 @@ public class StreamGraphGenerator {
 		String slotSharingGroup = determineSlotSharingGroup(source.getSlotSharingGroup(), Collections.emptyList());
 
 		streamGraph.addSource(source.getId(),
-				slotSharingGroup,
-				source.getCoLocationGroupKey(),
-				source.getOperator(),
-				null,
-				source.getOutputType(),
-				"Source: " + source.getName());
+			slotSharingGroup,
+			source.getCoLocationGroupKey(),
+			source.getOperator(),
+			null,
+			source.getOutputType(),
+			"Source: " + source.getName());
 		if (source.getOperator().getUserFunction() instanceof InputFormatSourceFunction) {
 			InputFormatSourceFunction<T> fs = (InputFormatSourceFunction<T>) source.getOperator().getUserFunction();
 			streamGraph.setInputFormat(source.getId(), fs.getFormat());
@@ -496,20 +501,20 @@ public class StreamGraphGenerator {
 		String slotSharingGroup = determineSlotSharingGroup(sink.getSlotSharingGroup(), inputIds);
 
 		streamGraph.addSink(sink.getId(),
-				slotSharingGroup,
-				sink.getCoLocationGroupKey(),
-				sink.getOperator(),
-				sink.getInput().getOutputType(),
-				null,
-				"Sink: " + sink.getName());
+			slotSharingGroup,
+			sink.getCoLocationGroupKey(),
+			sink.getOperator(),
+			sink.getInput().getOutputType(),
+			null,
+			"Sink: " + sink.getName());
 
 		streamGraph.setParallelism(sink.getId(), sink.getParallelism());
 		streamGraph.setMaxParallelism(sink.getId(), sink.getMaxParallelism());
 
-		for (Integer inputId: inputIds) {
+		for (Integer inputId : inputIds) {
 			streamGraph.addEdge(inputId,
-					sink.getId(),
-					0
+				sink.getId(),
+				0
 			);
 		}
 
@@ -529,6 +534,8 @@ public class StreamGraphGenerator {
 	 */
 	private <IN, OUT> Collection<Integer> transformOneInputTransform(OneInputTransformation<IN, OUT> transform) {
 
+		// 存储这个OneInputTransformation上游Transformation的id，方便构造边
+		// 在这里递归，确保上游的所有Transformation都已经转化
 		Collection<Integer> inputIds = transform(transform.getInput());
 
 		// the recursive call might have already transformed this
@@ -538,13 +545,14 @@ public class StreamGraphGenerator {
 
 		String slotSharingGroup = determineSlotSharingGroup(transform.getSlotSharingGroup(), inputIds);
 
+		// 加入StreamNode
 		streamGraph.addOperator(transform.getId(),
-				slotSharingGroup,
-				transform.getCoLocationGroupKey(),
-				transform.getOperator(),
-				transform.getInputType(),
-				transform.getOutputType(),
-				transform.getName());
+			slotSharingGroup,
+			transform.getCoLocationGroupKey(),
+			transform.getOperator(),
+			transform.getInputType(),
+			transform.getOutputType(),
+			transform.getName());
 
 		if (transform.getStateKeySelector() != null) {
 			TypeSerializer<?> keySerializer = transform.getStateKeyType().createSerializer(env.getConfig());
@@ -554,7 +562,8 @@ public class StreamGraphGenerator {
 		streamGraph.setParallelism(transform.getId(), transform.getParallelism());
 		streamGraph.setMaxParallelism(transform.getId(), transform.getMaxParallelism());
 
-		for (Integer inputId: inputIds) {
+		// 构造边
+		for (Integer inputId : inputIds) {
 			streamGraph.addEdge(inputId, transform.getId(), 0);
 		}
 
@@ -584,14 +593,14 @@ public class StreamGraphGenerator {
 		String slotSharingGroup = determineSlotSharingGroup(transform.getSlotSharingGroup(), allInputIds);
 
 		streamGraph.addCoOperator(
-				transform.getId(),
-				slotSharingGroup,
-				transform.getCoLocationGroupKey(),
-				transform.getOperator(),
-				transform.getInputType1(),
-				transform.getInputType2(),
-				transform.getOutputType(),
-				transform.getName());
+			transform.getId(),
+			slotSharingGroup,
+			transform.getCoLocationGroupKey(),
+			transform.getOperator(),
+			transform.getInputType1(),
+			transform.getInputType2(),
+			transform.getOutputType(),
+			transform.getName());
 
 		if (transform.getStateKeySelector1() != null || transform.getStateKeySelector2() != null) {
 			TypeSerializer<?> keySerializer = transform.getStateKeyType().createSerializer(env.getConfig());
@@ -601,17 +610,17 @@ public class StreamGraphGenerator {
 		streamGraph.setParallelism(transform.getId(), transform.getParallelism());
 		streamGraph.setMaxParallelism(transform.getId(), transform.getMaxParallelism());
 
-		for (Integer inputId: inputIds1) {
+		for (Integer inputId : inputIds1) {
 			streamGraph.addEdge(inputId,
-					transform.getId(),
-					1
+				transform.getId(),
+				1
 			);
 		}
 
-		for (Integer inputId: inputIds2) {
+		for (Integer inputId : inputIds2) {
 			streamGraph.addEdge(inputId,
-					transform.getId(),
-					2
+				transform.getId(),
+				2
 			);
 		}
 
@@ -627,14 +636,14 @@ public class StreamGraphGenerator {
 	 * default group is chosen.
 	 *
 	 * @param specifiedGroup The group specified by the user.
-	 * @param inputIds The IDs of the input operations.
+	 * @param inputIds       The IDs of the input operations.
 	 */
 	private String determineSlotSharingGroup(String specifiedGroup, Collection<Integer> inputIds) {
 		if (specifiedGroup != null) {
 			return specifiedGroup;
 		} else {
 			String inputGroup = null;
-			for (int id: inputIds) {
+			for (int id : inputIds) {
 				String inputGroupCandidate = streamGraph.getSlotSharingGroup(id);
 				if (inputGroup == null) {
 					inputGroup = inputGroupCandidate;
