@@ -179,21 +179,31 @@ keyBy()/window()/apply()也被拆分为两个operator subtask并各占一个线�
 
 ##### 1.3.2 JobManager/TaskManager/Client
 
-Flink运行时包含两种类型的进程：
-
-（1）JobManager（master）：协调job的分布式执行，具体包括调度task、协调checkpoint、协调从失败中恢复等。在实际部署中，至少有一个JobManager，高可用模式下会有多个JobManager（一个作为leader其它作为standby）。
-
-（2）TaskManager（worker）：负责dataflow中task的具体执行（更具体地说是subtask）。TaskManager需要连接到JobManager，告诉它自己是可用的，并等待被分配任务。在实际部署中，也至少有一个TaskManager。
-
-在单机伪分布模式下，只有JobManager进程，而TaskManager会作为JobManager进程中的一个线程。
-
-JobManager和TaskManager可以直接在机器上启动，也可以通过资源管理框架（如YARN、Mesos）来管理启动。
-
-Client不是Flink运行时的组成部分，被用于向JobManager发送Job（此后可以断开连接或者等待JobManager的任务执行进度报告）。
+要了解一个系统，一般是从架构开始。我们关心的问题是：系统部署成功后各个节点都启动了哪些服务，各个服务之间又是怎么交互和协调的。
 
 JobManager、TaskManager和Client之间的交互如下图所示:
 
 ![avatar](image/JobManager_TaskManager_Client三者之间的交互图.png)
+
+当Flink集群启动后，首先会启动一个JobManager和一个或多个TaskManager。由Client提交任务给JobManager，JobManager再调度任务到各个TaskManager去执行，
+
+然后TaskManager将心跳和统计信息汇报给JobManager。TaskManager之间以流的形式进行数据的传输。上述三者均为独立的JVM进程。
+
+Flink运行时包含两种类型的进程：
+
+（1）JobManager（master）：协调job的分布式执行，具体包括调度task、协调checkpoint、协调从失败中恢复等，职责上很像 Storm 的 Nimbus。从 Client 处接收到 Job 和 JAR 包等资源后，会生成优化后的执行计划，并以 Task 的单元调度到各个 TaskManager 去执行。
+
+在实际部署中，至少有一个JobManager，高可用模式下会有多个JobManager（一个作为leader其它作为standby）。
+
+（2）TaskManager（worker）：在启动的时候就设置好了槽位数（Slot），每个 slot 能启动一个 Task，Task 为线程。从 JobManager 处接收需要部署的 Task，部署启动后，与自己的上游建立 Netty 连接，接收数据并处理。
+
+负责dataflow中task的具体执行（更具体地说是subtask）。TaskManager需要连接到JobManager，告诉它自己是可用的，并等待被分配任务。在实际部署中，也至少有一个TaskManager。
+
+在单机伪分布模式下，只有JobManager进程，而TaskManager会作为JobManager进程中的一个线程。JobManager和TaskManager可以直接在机器上启动，也可以通过资源管理框架（如YARN、Mesos）来管理启动。
+
+（3）Client为提交Job的客户端，可以是运行在任何机器上（与JobManager环境连通即可）。提交Job后，Client可以结束进程（Streaming任务），也可以不结束并等待结果返回。Client不是Flink
+
+运行时的组成部分，被用于向JobManager发送Job，此后可以断开连接或者等待JobManager的任务执行进度报告）。
 
 
 ##### 1.3.3 Task槽(Slot)与资源
@@ -478,6 +488,92 @@ SocketWindowWordCount生成StreamGraph的代码流程图:
 
 ![avatar](image/SocketWindowWordCount生成StreamGraph的过程.png)
 
+将最后一行代码env.execute 替换成 System.out.println(env.getExecutionPlan()) , 并在本地运行该代码，可以得到该拓扑的逻辑执行计划图的JSON串:
+
+```
+{
+    "nodes":[
+        {
+            "id":1,
+            "type":"Source: Socket Stream",
+            "pact":"Data Source",
+            "contents":"Source: Socket Stream",
+            "parallelism":1
+        },
+        {
+            "id":2,
+            "type":"Flat Map",
+            "pact":"Operator",
+            "contents":"Flat Map",
+            "parallelism":8,
+            "predecessors":[
+                {
+                    "id":1,
+                    "ship_strategy":"REBALANCE",
+                    "side":"second"
+                }
+            ]
+        },
+        {
+            "id":4,
+            "type":"Window(TumblingProcessingTimeWindows(5000), ProcessingTimeTrigger, ReduceFunction$1, PassThroughWindowFunction)",
+            "pact":"Operator",
+            "contents":"Window(TumblingProcessingTimeWindows(5000), ProcessingTimeTrigger, ReduceFunction$1, PassThroughWindowFunction)",
+            "parallelism":8,
+            "predecessors":[
+                {
+                    "id":2,
+                    "ship_strategy":"HASH",
+                    "side":"second"
+                }
+            ]
+        },
+        {
+            "id":5,
+            "type":"Sink: Print to Std. Out",
+            "pact":"Data Sink",
+            "contents":"Sink: Print to Std. Out",
+            "parallelism":1,
+            "predecessors":[
+                {
+                    "id":4,
+                    "ship_strategy":"REBALANCE",
+                    "side":"second"
+                }
+            ]
+        }
+    ]
+}
+
+
+```
+
+将该JSON串粘贴到http://flink.apache.org/visualizer/ 中，能可视化该执行图:
+
+![avatar](image/SocketWindowWordCount生成的执行计划图.png)
+
+但这并不是最终在Flink中运行的执行图，只是一个表示拓扑节点关系的计划图，在Flink中对应了StreamGraph。提交拓扑后还能在UI中看到另一张执行计划图，该图对应了
+
+Flink中的JobGraph:
+
+```
+./start-cluster.sh
+
+http://localhost:8081
+
+nc -l 9999
+
+bin/flink run examples/streaming/SocketWindowWordCount.jar --hostname localhost  --port 9999 
+
+```
+
+![avatar](image/SocketWindowWordCount在Flink中的JobGraph.png)
+
+任务输出的统计结果:
+
+![avatar](image/SocketWindowWordCount输出的统计结果.png)
+
+
 
 
 
@@ -487,6 +583,47 @@ StreamTransformation的10个子类实现:
 
 ![avatar](image/StreamTransformation类图.png)
 
+这些transformation会构造出一颗StreamTransformation树，通过这棵树转成StreamGraph
+跟踪SingleOutputStreamOperator的map源码:
+
+```
+public <R> SingleOutputStreamOperator<R> map(MapFunction<T, R> mapper) {
+  // 通过java reflection抽出mapper的返回值类型
+  TypeInformation<R> outType = TypeExtractor.getMapReturnTypes(clean(mapper), getType(),
+      Utils.getCallLocationName(), true);
+
+  // 返回一个新的DataStream，SteramMap 为 StreamOperator 的实现类
+  return transform("Map", outType, new StreamMap<>(clean(mapper)));
+}
+
+public <R> SingleOutputStreamOperator<R> transform(String operatorName, TypeInformation<R> outTypeInfo, OneInputStreamOperator<T, R> operator) {
+  // read the output type of the input Transform to coax out errors about MissingTypeInfo
+  transformation.getOutputType();
+
+  // 新的transformation会连接上当前DataStream中的transformation，从而构建成一棵树
+  OneInputTransformation<T, R> resultTransform = new OneInputTransformation<>(
+      this.transformation,
+      operatorName,
+      operator,
+      outTypeInfo,
+      environment.getParallelism());
+
+  @SuppressWarnings({ "unchecked", "rawtypes" })
+  SingleOutputStreamOperator<R> returnStream = new SingleOutputStreamOperator(environment, resultTransform);
+
+  // 所有的transformation都会存到 env 中，调用execute时遍历该list生成StreamGraph
+  getExecutionEnvironment().addOperator(resultTransform);
+
+  return returnStream;
+}
+
+```
+
+从上方代码可以了解到，map转换将用户自定义的函数MapFunction包装到StreamMap这个Operator中，再将StreamMap包装到OneInputTransformation，最后该transformation
+存到env中，当调用env.execute时，遍历其中的transformation集合构造出StreamGraph。其分层实现如下图所示:
+
+![avatar](image/OneInputTransformation分层结构.png)
+
 
 并不是每一个 StreamTransformation 都会转换成 runtime 层中物理操作。有一些只是逻辑概念，比如 union、split/select、partition等。
 如下图所示的转换树，在运行时会优化成下方的操作图:
@@ -495,6 +632,33 @@ StreamTransformation的10个子类实现:
 
 通过源码也可以发现，UnionTransformation,SplitTransformation,SelectTransformation,
 PartitionTransformation由于不包含具体的操作所以都没有StreamOperator成员变量，而其他StreamTransformation的子类基本上都有。
+
+
+如下程序，是一个从 Source 中按行切分成单词并过滤输出的简单流程序，其中包含了逻辑转换：随机分区shuffle。我们会分析该程序是如何生成StreamGraph的。
+
+```
+DataStream<String> text = env.socketTextStream(hostName, port);
+text.flatMap(new LineSplitter()).shuffle().filter(new HelloFilter()).print();
+
+```
+
+首先会在env中生成一棵transformation树，用List<StreamTransformation<?>> 保存。其结构图如下:
+
+![avatar](image/实例讲解生成的一棵transformation树.png)
+
+其中，符号*为input指针，指向上游的transformation，从而形成一棵transformation树。
+然后，通过调用StreamGraphGenerator.generate(env,transformation)来生成StreamGraph。
+自底向上递归调用每一个transformation,也就是说处理顺序是Source -> FlatMap -> Shuffle -> Filter -> Sink:
+
+![avatar](image/实例讲解中transformation的处理顺序.png)
+
+如上图所示:
+
+1.
+2.
+3.
+4.
+5.
 
 
 #### 5.4 StreamOperator
@@ -509,8 +673,13 @@ DataStream 上的每一个 Transformation 都对应了一个 StreamOperator，St
 
 
 
+#### 5.5 Graph
 
+Flink中的执行图可以分为4层:
 
+StreamGraph -> JobGraph -> ExecutionGraph -> 物理执行图
+
+![avatar](image/SocketTextStreamWordCount四层执行图的演变过程.png)
 
 
 

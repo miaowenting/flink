@@ -141,10 +141,13 @@ public class StreamGraphGenerator {
 	 *
 	 * <p>This checks whether we already transformed it and exits early in that case. If not it
 	 * delegates to one of the transformation specific methods.
+	 *
+	 * 对具体的一个transformation进行转换，转换成 StreamGraph 中的 StreamNode 和 StreamEdge
+	 * 返回值为该transform的id集合，通常大小为1个（除FeedbackTransformation）
 	 */
 	private Collection<Integer> transform(StreamTransformation<?> transform) {
 
-		// 判断是否已经转化
+		// 跳过已经转换过的transformation
 		if (alreadyTransformed.containsKey(transform)) {
 			return alreadyTransformed.get(transform);
 		}
@@ -163,6 +166,7 @@ public class StreamGraphGenerator {
 		}
 
 		// call at least once to trigger exceptions about MissingTypeInfo
+		// 为了触发 MissingTypeInfo 的异常
 		transform.getOutputType();
 
 		// 判断是哪种类型的StreamTransformation,进行相应的转化
@@ -238,14 +242,22 @@ public class StreamGraphGenerator {
 	 *
 	 * <p>For this we create a virtual node in the {@code StreamGraph} that holds the partition
 	 * property. @see StreamGraphGenerator
+	 *
+	 * 对partition的转换没有生成具体的StreamNode和StreamEdge，而是添加一个虚节点。
+	 * 当partition的下游transform（如map）添加Edge时（调用StreamGraph.addEdge）,会把partition信息写入到edge中，
+	 * 如StreamGraph的addEdgeInternal所示
+	 *
 	 */
 	private <T> Collection<Integer> transformPartition(PartitionTransformation<T> partition) {
 		StreamTransformation<T> input = partition.getInput();
 		List<Integer> resultIds = new ArrayList<>();
 
+		// 直接上游的id
 		Collection<Integer> transformedIds = transform(input);
 		for (Integer transformedId : transformedIds) {
+			// 生成一个新的虚拟id
 			int virtualId = StreamTransformation.getNewNodeId();
+			// 添加一个虚拟分区节点，不会生成StreamNode
 			streamGraph.addVirtualPartitionNode(transformedId, virtualId, partition.getPartitioner());
 			resultIds.add(virtualId);
 		}
@@ -531,21 +543,25 @@ public class StreamGraphGenerator {
 	 *
 	 * <p>This recursively transforms the inputs, creates a new {@code StreamNode} in the graph and
 	 * wired the inputs to this new node.
+	 *
+	 * 该函数首先会对该transform的上游进行递归转换，确保上游的都已经完成转换。然后通过transform构造出StreamNode
+	 * 最后与上游的transform进行连接，构造出StreamNode。
+	 *
 	 */
 	private <IN, OUT> Collection<Integer> transformOneInputTransform(OneInputTransformation<IN, OUT> transform) {
 
-		// 存储这个OneInputTransformation上游Transformation的id，方便构造边
-		// 在这里递归，确保上游的所有Transformation都已经转化
+		// 递归对该transform的直接上游transform进行转换，获得直接上游id集合
 		Collection<Integer> inputIds = transform(transform.getInput());
 
 		// the recursive call might have already transformed this
+		// 递归调用可能已经处理过该transform了
 		if (alreadyTransformed.containsKey(transform)) {
 			return alreadyTransformed.get(transform);
 		}
 
 		String slotSharingGroup = determineSlotSharingGroup(transform.getSlotSharingGroup(), inputIds);
 
-		// 加入StreamNode
+		// 添加StreamNode
 		streamGraph.addOperator(transform.getId(),
 			slotSharingGroup,
 			transform.getCoLocationGroupKey(),
@@ -562,7 +578,7 @@ public class StreamGraphGenerator {
 		streamGraph.setParallelism(transform.getId(), transform.getParallelism());
 		streamGraph.setMaxParallelism(transform.getId(), transform.getMaxParallelism());
 
-		// 构造边
+		// 构造边，添加StreamEdge
 		for (Integer inputId : inputIds) {
 			streamGraph.addEdge(inputId, transform.getId(), 0);
 		}

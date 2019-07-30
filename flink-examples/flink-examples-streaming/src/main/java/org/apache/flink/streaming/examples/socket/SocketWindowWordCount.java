@@ -46,6 +46,7 @@ public class SocketWindowWordCount {
 		final String hostname;
 		final int port;
 		try {
+			// 检查输入
 			final ParameterTool params = ParameterTool.fromArgs(args);
 			hostname = params.has("hostname") ? params.get("hostname") : "localhost";
 			port = params.getInt("port");
@@ -66,7 +67,7 @@ public class SocketWindowWordCount {
 
 		// parse the data, group it, window it, and aggregate the counts
 		DataStream<WordWithCount> windowCounts = text
-
+			    // split up the lines in pairs (2-tuples) containing: (word,1)
 				.flatMap(new FlatMapFunction<String, WordWithCount>() {
 					@Override
 					public void flatMap(String value, Collector<WordWithCount> out) {
@@ -76,6 +77,7 @@ public class SocketWindowWordCount {
 					}
 				})
 
+			    // group by the tuple field "0"
 				.keyBy("word")
 				.timeWindow(Time.seconds(5))
 
@@ -89,6 +91,12 @@ public class SocketWindowWordCount {
 		// print the results with a single thread, rather than in parallel
 		windowCounts.print().setParallelism(1);
 
+
+		// 得到该拓扑的逻辑执行计划图的JSON串，将该JSON串粘贴到http://flink.apache.org/visualizer/中，能可视化该执行图
+		// 但这不是最终在Flink中运行的执行图，只是一个表示拓扑节点关系的计划图，在Flink中对应了StreamGraph
+//		System.out.println(env.getExecutionPlan());
+
+		// execute program
 		// 生成StreamGraph的入口
 		env.execute("Socket Window WordCount");
 	}

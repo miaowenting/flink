@@ -377,6 +377,9 @@ public class StreamGraph extends StreamingPlan {
 		}
 	}
 
+	/**
+	 * 添加边
+	 */
 	public void addEdge(Integer upStreamVertexID, Integer downStreamVertexID, int typeNumber) {
 		addEdgeInternal(upStreamVertexID,
 				downStreamVertexID,
@@ -402,7 +405,9 @@ public class StreamGraph extends StreamingPlan {
 			}
 			addEdgeInternal(upStreamVertexID, downStreamVertexID, typeNumber, partitioner, null, outputTag);
 		} else if (virtualSelectNodes.containsKey(upStreamVertexID)) {
+			// 当上游节点是select时，递归调用，并传入select信息
 			int virtualId = upStreamVertexID;
+			// select上游节点的id
 			upStreamVertexID = virtualSelectNodes.get(virtualId).f0;
 			if (outputNames.isEmpty()) {
 				// selections that happen downstream override earlier selections
@@ -410,24 +415,29 @@ public class StreamGraph extends StreamingPlan {
 			}
 			addEdgeInternal(upStreamVertexID, downStreamVertexID, typeNumber, partitioner, outputNames, outputTag);
 		} else if (virtualPartitionNodes.containsKey(upStreamVertexID)) {
+			// 当上游是partition时，递归调用，并传入partitioner信息
 			int virtualId = upStreamVertexID;
+			// partition上游节点的id
 			upStreamVertexID = virtualPartitionNodes.get(virtualId).f0;
 			if (partitioner == null) {
 				partitioner = virtualPartitionNodes.get(virtualId).f1;
 			}
 			addEdgeInternal(upStreamVertexID, downStreamVertexID, typeNumber, partitioner, outputNames, outputTag);
 		} else {
+			// 真正构建StreamEdge
 			StreamNode upstreamNode = getStreamNode(upStreamVertexID);
 			StreamNode downstreamNode = getStreamNode(downStreamVertexID);
 
 			// If no partitioner was specified and the parallelism of upstream and downstream
 			// operator matches use forward partitioning, use rebalance otherwise.
+			// 未指定partitioner的话，会为其选择forward或rebalance分区
 			if (partitioner == null && upstreamNode.getParallelism() == downstreamNode.getParallelism()) {
 				partitioner = new ForwardPartitioner<Object>();
 			} else if (partitioner == null) {
 				partitioner = new RebalancePartitioner<Object>();
 			}
 
+			// 健康检查，forward分区必须要上下游的并发度一致
 			if (partitioner instanceof ForwardPartitioner) {
 				if (upstreamNode.getParallelism() != downstreamNode.getParallelism()) {
 					throw new UnsupportedOperationException("Forward partitioning does not allow " +
@@ -437,8 +447,10 @@ public class StreamGraph extends StreamingPlan {
 				}
 			}
 
+			// 创建StreamEdge
 			StreamEdge edge = new StreamEdge(upstreamNode, downstreamNode, typeNumber, outputNames, partitioner, outputTag);
 
+			// 将该StreamEdge添加到上游的输出，下游的输入
 			getStreamNode(edge.getSourceId()).addOutEdge(edge);
 			getStreamNode(edge.getTargetId()).addInEdge(edge);
 		}
