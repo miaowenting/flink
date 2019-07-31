@@ -484,94 +484,6 @@ env.java.opts: -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=500
 
 #### 5.2 SocketWindowWordCount
 
-SocketWindowWordCount生成StreamGraph的代码流程图:
-
-![avatar](image/SocketWindowWordCount生成StreamGraph的过程.png)
-
-将最后一行代码env.execute 替换成 System.out.println(env.getExecutionPlan()) , 并在本地运行该代码，可以得到该拓扑的逻辑执行计划图的JSON串:
-
-```
-{
-    "nodes":[
-        {
-            "id":1,
-            "type":"Source: Socket Stream",
-            "pact":"Data Source",
-            "contents":"Source: Socket Stream",
-            "parallelism":1
-        },
-        {
-            "id":2,
-            "type":"Flat Map",
-            "pact":"Operator",
-            "contents":"Flat Map",
-            "parallelism":8,
-            "predecessors":[
-                {
-                    "id":1,
-                    "ship_strategy":"REBALANCE",
-                    "side":"second"
-                }
-            ]
-        },
-        {
-            "id":4,
-            "type":"Window(TumblingProcessingTimeWindows(5000), ProcessingTimeTrigger, ReduceFunction$1, PassThroughWindowFunction)",
-            "pact":"Operator",
-            "contents":"Window(TumblingProcessingTimeWindows(5000), ProcessingTimeTrigger, ReduceFunction$1, PassThroughWindowFunction)",
-            "parallelism":8,
-            "predecessors":[
-                {
-                    "id":2,
-                    "ship_strategy":"HASH",
-                    "side":"second"
-                }
-            ]
-        },
-        {
-            "id":5,
-            "type":"Sink: Print to Std. Out",
-            "pact":"Data Sink",
-            "contents":"Sink: Print to Std. Out",
-            "parallelism":1,
-            "predecessors":[
-                {
-                    "id":4,
-                    "ship_strategy":"REBALANCE",
-                    "side":"second"
-                }
-            ]
-        }
-    ]
-}
-
-
-```
-
-将该JSON串粘贴到http://flink.apache.org/visualizer/ 中，能可视化该执行图:
-
-![avatar](image/SocketWindowWordCount生成的执行计划图.png)
-
-但这并不是最终在Flink中运行的执行图，只是一个表示拓扑节点关系的计划图，在Flink中对应了StreamGraph。提交拓扑后还能在UI中看到另一张执行计划图，该图对应了
-
-Flink中的JobGraph:
-
-```
-./start-cluster.sh
-
-http://localhost:8081
-
-nc -l 9999
-
-bin/flink run examples/streaming/SocketWindowWordCount.jar --hostname localhost  --port 9999 
-
-```
-
-![avatar](image/SocketWindowWordCount在Flink中的JobGraph.png)
-
-任务输出的统计结果:
-
-![avatar](image/SocketWindowWordCount输出的统计结果.png)
 
 
 
@@ -680,6 +592,183 @@ Flink中的执行图可以分为4层:
 StreamGraph -> JobGraph -> ExecutionGraph -> 物理执行图
 
 ![avatar](image/SocketTextStreamWordCount四层执行图的演变过程.png)
+
+- StreamGraph
+
+根据用户通过Stream API编写的代码生成的最初的图
+
+StreamNode: 用来代表operator的类，并具有所有相关的属性，如并发度、入边和出边等
+
+StreamEdge: 表示连接两个StreamNode的边
+
+- JobGraph
+
+StreamGraph经过优化后生成了JobGraph，提交给JobManager的数据结构
+
+JobVertex: 经过优化后的符合条件的多个StreamNode可能会chain在一起生成一个JobVertex，即一个JobVertex包含一个或多个operator，
+
+JobVertex的输入是JobEdge，输出是IntermediateDataSet
+
+IntermediateDataSet: 表示JobVertex的输出，即经过operator处理产生的数据集。producer是JobVertex，consumer是JobEdge。
+
+JobEdge: 代表了JobGraph中一条数据传输通道。source是IntermediateDataSet，target是JobVertex。即数据通过JobEdge由IntermediateDataSet
+
+传递给目标JobVertex。
+
+
+- ExecutionGraph
+
+JobManager根据JobGraph生成ExecutionGraph，ExecutionGraph是JobGraph的并行化版本，是调度层最核心的数据结构。
+
+ExecutionJobVertex: 和JobGraph中的JobVertex一一对应，每个ExecutionJobVertex都有和并发度一样多的ExecutionVertex。
+
+ExecutionVertex: 表示ExecutionJobVertex的其中一个并发子任务，输入是ExecutionEdge，输出是IntermediateResultPartition。
+
+IntermediateResult: 和JobGraph中的IntermediateDataSet一一对应。一个IntermediateResult包含多个IntermediateResultPartition，其个数等于该operator的并发度。
+
+IntermediateResultPartition: 表示ExecutionVertex的一个输出分区，producer是ExecutionVertex，consumer是若干个ExecutionEdge。
+
+ExecutionEdge: 表示ExecutionVertex的输入，source是IntermediateResultPartition，target是ExecutionVertex。source和target都只能是一个。
+
+Execution: 是执行一个 ExecutionVertex 的一次尝试。当发生故障或者数据需要重算的情况下 ExecutionVertex 可能会有多个 ExecutionAttemptID。一个 Execution 通过 ExecutionAttemptID 来唯一标识。
+
+JM和TM之间关于 task 的部署和 task status 的更新都是通过 ExecutionAttemptID 来确定消息接受者。
+
+
+
+- 物理执行图
+
+JobManager根据ExecutionGraph对Job进行调度后，在各个TaskManager上部署Task后形成的"图"，并不是一个具体的数据结构。
+
+Task: Execution被调度后在分配的TaskManager中启动对应的Task。Task包裹了具有用户执行逻辑的operator。
+
+ResultPartition: 代表由一个Task生成的数据，和ExecutionGraph中的IntermediateResultPartition一一对应。
+
+ResultSubpartition: 是ResultPartition的一个子分区，每个ResultPartition包含多个ResultSubpartition，其数目要由下游消费Task数和DistributionPattern
+
+来决定。
+
+InputGate: 代表Task的输入封装，和JobGraph的JobEdge一一对应。每个InputGate消费了一个或多个ResultPartition。
+
+InputChannel: 每个InputGate包含一个以上的InputChannel，和ExecutionGraph中的ExecutionEdge一一对应，也和ResultSubpartition一对一地相连，
+
+即一个InputChannel接收一个ResultSubpartition的输出。
+
+
+Flink中为什么要有这4张图呢？目的是解耦，每张图各司其职，每张图对应了Job的不同阶段，更方便做该阶段的事情。以下给出更完整的Flink Graph的层次图:
+
+![avatar](image/更完整的Flink Graph的层次图.png)
+
+首先我们看到，JobGraph 之上除了 StreamGraph 还有 OptimizedPlan。OptimizedPlan 是由 Batch API 转换而来的。StreamGraph 是由 Stream API 转换而来的。为什么 API 不直接转换成 JobGraph？因为，Batch 和 Stream 的图结构和优化方法有很大的区别，比如 Batch 有很多执行前的预分析用来优化图的执行，而这种优化并不普适于 Stream，所以通过 OptimizedPlan 来做 Batch 的优化会更方便和清晰，也不会影响 Stream。JobGraph 的责任就是统一 Batch 和 Stream 的图，用来描述清楚一个拓扑图的结构，并且做了 chaining 的优化，chaining 是普适于 Batch 和 Stream 的，所以在这一层做掉。ExecutionGraph 的责任是方便调度和各个 tasks 状态的监控和跟踪，所以 ExecutionGraph 是并行化的 JobGraph。而“物理执行图”就是最终分布式在各个机器上运行着的tasks了。所以可以看到，这种解耦方式极大地方便了我们在各个层所做的工作，各个层之间是相互隔离的。
+
+
+##### 5.5.1 如何生成StreamGraph
+
+SocketWindowWordCount生成StreamGraph的代码流程图:
+
+![avatar](image/SocketWindowWordCount生成StreamGraph的过程.png)
+
+将最后一行代码env.execute 替换成 System.out.println(env.getExecutionPlan()) , 并在本地运行该代码，可以得到该拓扑的逻辑执行计划图的JSON串:
+
+```
+{
+    "nodes":[
+        {
+            "id":1,
+            "type":"Source: Socket Stream",
+            "pact":"Data Source",
+            "contents":"Source: Socket Stream",
+            "parallelism":1
+        },
+        {
+            "id":2,
+            "type":"Flat Map",
+            "pact":"Operator",
+            "contents":"Flat Map",
+            "parallelism":8,
+            "predecessors":[
+                {
+                    "id":1,
+                    "ship_strategy":"REBALANCE",
+                    "side":"second"
+                }
+            ]
+        },
+        {
+            "id":4,
+            "type":"Window(TumblingProcessingTimeWindows(5000), ProcessingTimeTrigger, ReduceFunction$1, PassThroughWindowFunction)",
+            "pact":"Operator",
+            "contents":"Window(TumblingProcessingTimeWindows(5000), ProcessingTimeTrigger, ReduceFunction$1, PassThroughWindowFunction)",
+            "parallelism":8,
+            "predecessors":[
+                {
+                    "id":2,
+                    "ship_strategy":"HASH",
+                    "side":"second"
+                }
+            ]
+        },
+        {
+            "id":5,
+            "type":"Sink: Print to Std. Out",
+            "pact":"Data Sink",
+            "contents":"Sink: Print to Std. Out",
+            "parallelism":1,
+            "predecessors":[
+                {
+                    "id":4,
+                    "ship_strategy":"REBALANCE",
+                    "side":"second"
+                }
+            ]
+        }
+    ]
+}
+
+
+```
+
+将该JSON串粘贴到http://flink.apache.org/visualizer/ 中，能可视化该执行图:
+
+![avatar](image/SocketWindowWordCount生成的执行计划图.png)
+
+但这并不是最终在Flink中运行的执行图，只是一个表示拓扑节点关系的计划图，在Flink中对应了StreamGraph。提交拓扑后还能在UI中看到另一张执行计划图，该图对应了
+
+Flink中的JobGraph:
+
+```
+./start-cluster.sh
+
+http://localhost:8081
+
+nc -l 9999
+
+bin/flink run examples/streaming/SocketWindowWordCount.jar --hostname localhost  --port 9999 
+
+```
+
+![avatar](image/SocketWindowWordCount在Flink中的JobGraph.png)
+
+任务输出的统计结果:
+
+![avatar](image/SocketWindowWordCount输出的统计结果.png)
+
+
+##### 5.5.2 如何生成JobGraph
+
+![avatar](image/StreamGraph生成JobGraph.png)
+
+StreamGraph和JobGraph都是在Client端生成的，也就是我们可以在idea中通过断点调试观察StreamGraph和JobGraph的生成过程。
+
+
+
+##### 5.5.3 如何生成ExecutionGraph
+
+
+
+##### 5.5.4 如何进行调度(如何生成物理执行图)
+
+
 
 
 
