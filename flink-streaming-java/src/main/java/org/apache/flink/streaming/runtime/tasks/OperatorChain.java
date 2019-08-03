@@ -423,7 +423,9 @@ public class OperatorChain<OUT, OP extends StreamOperator<OUT>> implements Strea
 	}
 
 	static class ChainingOutput<T> implements WatermarkGaugeExposingOutput<StreamRecord<T>> {
-
+		/**
+		 * 注册的下游operator
+		 */
 		protected final OneInputStreamOperator<T, ?> operator;
 		protected final Counter numRecordsIn;
 		protected final WatermarkGauge watermarkGauge = new WatermarkGauge();
@@ -455,6 +457,10 @@ public class OperatorChain<OUT, OP extends StreamOperator<OUT>> implements Strea
 			this.outputTag = outputTag;
 		}
 
+		/**
+		 * 发送消息方法的实现，直接将消息对象传递给operator处理，不经过序列化/反序列化、网络传输
+		 * @param record The record to collect.
+		 */
 		@Override
 		public void collect(StreamRecord<T> record) {
 			if (this.outputTag != null) {
@@ -462,6 +468,7 @@ public class OperatorChain<OUT, OP extends StreamOperator<OUT>> implements Strea
 				return;
 			}
 
+			// 下游operator直接处理消息对象
 			pushToOperator(record);
 		}
 

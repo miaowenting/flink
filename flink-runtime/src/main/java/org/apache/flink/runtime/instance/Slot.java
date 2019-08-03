@@ -45,6 +45,12 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * case, a slot is shared ({@link SharedSlot}) and contains a set of tasks. Shared slots may contain
  * other shared slots which in turn can hold simple slots. That way, a shared slot may define a tree
  * of slots that belong to it.
+ *
+ * 定义了该槽位属于哪个TaskManager (instance) 的第几个槽位 (slotNumber) , 属于哪个Job (jobID) 等信息。
+ * 最简单情况下，一个slot只持有一个task，也就是SimpleSlot的实现。复杂点的情况，一个slot能共享给多个task使用，也就是SharedSlot的实现。
+ * SharedSlot能包含其他的SharedSlot，也能包含SimpleSlot。所以一个SharedSlot能定义出一棵slots树。
+ *
+ *
  */
 public abstract class Slot {
 
