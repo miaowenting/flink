@@ -64,11 +64,14 @@ public class SlidingProcessingTimeWindows extends WindowAssigner<Object, TimeWin
 	@Override
 	public Collection<TimeWindow> assignWindows(Object element, long timestamp, WindowAssignerContext context) {
 		timestamp = context.getCurrentProcessingTime();
+		// SlidingProcessingTimeWindows会对每个进入窗口的元素根据系统时间分配到（size/slide）个不同的窗口
 		List<TimeWindow> windows = new ArrayList<>((int) (size / slide));
+		// 对齐时间戳
 		long lastStart = TimeWindow.getWindowStartWithOffset(timestamp, offset, slide);
 		for (long start = lastStart;
 			start > timestamp - size;
 			start -= slide) {
+			// 当前时间戳对应了多个window
 			windows.add(new TimeWindow(start, start + size));
 		}
 		return windows;
@@ -82,6 +85,10 @@ public class SlidingProcessingTimeWindows extends WindowAssigner<Object, TimeWin
 		return slide;
 	}
 
+	/**
+	 * 并会在每个窗口上根据窗口结束时间注册一个定时器（相同窗口只会注册一份），当定时器超时时意味着该窗口完成了，
+	 * 这时会回调对应窗口的Trigger的onProcessingTime方法，也就是会执行窗口计算
+	 */
 	@Override
 	public Trigger<Object, TimeWindow> getDefaultTrigger(StreamExecutionEnvironment env) {
 		return ProcessingTimeTrigger.create();

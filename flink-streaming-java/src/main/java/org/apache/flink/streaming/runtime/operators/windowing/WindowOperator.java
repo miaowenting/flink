@@ -290,8 +290,12 @@ public class WindowOperator<K, IN, ACC, OUT, W extends Window>
 		windowAssignerContext = null;
 	}
 
+	/**
+	 * 对每一个进入元素进行处理
+	 */
 	@Override
 	public void processElement(StreamRecord<IN> element) throws Exception {
+		// 为新进入的元素分配窗口集合
 		final Collection<W> elementWindows = windowAssigner.assignWindows(
 			element.getValue(), element.getTimestamp(), windowAssignerContext);
 
@@ -301,6 +305,8 @@ public class WindowOperator<K, IN, ACC, OUT, W extends Window>
 		final K key = this.<K>getKeyedStateBackend().getCurrentKey();
 
 		if (windowAssigner instanceof MergingWindowAssigner) {
+			// 对于session window的特殊处理
+			// 取出当前的 MergingWindowSet
 			MergingWindowSet<W> mergingWindows = getMergingWindowSet();
 
 			for (W window: elementWindows) {
@@ -308,6 +314,13 @@ public class WindowOperator<K, IN, ACC, OUT, W extends Window>
 				// adding the new window might result in a merge, in that case the actualWindow
 				// is the merged window and we work with that. If we don't merge then
 				// actualWindow == window
+				// 加入新窗口，如果没有合并发生，那么 actualWindow 就是新加入的窗口
+				// 如果有合并发生，那么返回 actualWindow 即为合并后的窗口,
+				// 并且会调用MergeFunction.merge方法，这里方法中的内容主要是更新trigger，合并旧窗口中的状态到新窗口中
+
+				// 对于每个分配到的窗口，我们就会将其加入到MergingWindowSet，由MergingWindowSet维护窗口与状态窗口之间的关系，
+				// 并在需要窗口合并的时候，合并状态和trigger。然后根据映射关系，取出结果窗口对应的状态窗口，根据状态窗口取出对应的状态。将新进入的元素数据加入到该状态中。
+				// 最后，根据trigger结果来对窗口数据进行处理。
 				W actualWindow = mergingWindows.addWindow(window, new MergingWindowSet.MergeFunction<W>() {
 					@Override
 					public void merge(W mergeResult,
@@ -329,14 +342,17 @@ public class WindowOperator<K, IN, ACC, OUT, W extends Window>
 						triggerContext.key = key;
 						triggerContext.window = mergeResult;
 
+						// 这里面会根据新窗口的结束时间注册新的定时器
 						triggerContext.onMerge(mergedWindows);
 
+						// 删除旧窗口注册的定时器
 						for (W m: mergedWindows) {
 							triggerContext.window = m;
 							triggerContext.clear();
 							deleteCleanupTimer(m);
 						}
 
+						// 合并旧窗口（mergedStateWindows）中的状态到新窗口(stateWindowResult)中
 						// merge the merged state windows into the newly resulting state window
 						windowMergingState.mergeNamespaces(stateWindowResult, mergedStateWindows);
 					}
@@ -349,17 +365,21 @@ public class WindowOperator<K, IN, ACC, OUT, W extends Window>
 				}
 				isSkippedElement = false;
 
+				// 取actualWindow对应的用来存状态的窗口
 				W stateWindow = mergingWindows.getStateWindow(actualWindow);
 				if (stateWindow == null) {
 					throw new IllegalStateException("Window " + window + " is not in in-flight window set.");
 				}
 
 				windowState.setCurrentNamespace(stateWindow);
+
+				// 将新进入的元素数据加入到新窗口（或者说合并后的窗口）中对应的状态中
 				windowState.add(element.getValue());
 
 				triggerContext.key = key;
 				triggerContext.window = actualWindow;
 
+				// 检查是否需要fire or purge
 				TriggerResult triggerResult = triggerContext.onElement(element);
 
 				if (triggerResult.isFire()) {
@@ -370,6 +390,7 @@ public class WindowOperator<K, IN, ACC, OUT, W extends Window>
 					emitWindowContents(actualWindow, contents);
 				}
 
+				// 根据trigger结果决定是否清除窗口中的数据
 				if (triggerResult.isPurge()) {
 					windowState.clear();
 				}
@@ -379,6 +400,7 @@ public class WindowOperator<K, IN, ACC, OUT, W extends Window>
 			// need to make sure to update the merging state in state
 			mergingWindows.persist();
 		} else {
+			// 对于普通window assigner的处理
 			for (W window: elementWindows) {
 
 				// drop if the window is already late

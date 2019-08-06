@@ -26,6 +26,9 @@ import java.util.Collection;
 /**
  * A {@code WindowAssigner} that can merge windows.
  *
+ * 扩展Flink中的窗口机制，使得能够支持窗口合并，首先window assigner要能合并现有的窗口，
+ * Flink增加了一个新的抽象类MergingWindowAssigner继承自WindowAssigner
+ *
  * @param <T> The type of elements that this WindowAssigner can assign windows to.
  * @param <W> The type of {@code Window} that this assigner assigns.
  */
@@ -35,9 +38,11 @@ public abstract class MergingWindowAssigner<T, W extends Window> extends WindowA
 
 	/**
 	 * Determines which windows (if any) should be merged.
+	 * 决定哪些窗口需要被合并。对于每组需要合并的窗口，都会调用callback.merge
 	 *
-	 * @param windows The window candidates.
-	 * @param callback A callback that can be invoked to signal which windows should be merged.
+	 * @param windows The window candidates. 现存的窗口集合
+	 * @param callback A callback that can be invoked to signal which windows should be merged. 需要被合并的窗口会回调callback
+	 *                    .merge方法
 	 */
 	public abstract void mergeWindows(Collection<W> windows, MergeCallback<W> callback);
 
@@ -49,9 +54,10 @@ public abstract class MergingWindowAssigner<T, W extends Window> extends WindowA
 
 		/**
 		 * Specifies that the given windows should be merged into the result window.
+		 * 用来声明合并窗口的具体动作（合并窗口底层状态、合并窗口trigger等）
 		 *
-		 * @param toBeMerged The list of windows that should be merged into one window.
-		 * @param mergeResult The resulting merged window.
+		 * @param toBeMerged The list of windows that should be merged into one window. 需要被合并的窗口列表
+		 * @param mergeResult The resulting merged window. 合并后的窗口
 		 */
 		void merge(Collection<W> toBeMerged, W mergeResult);
 	}
