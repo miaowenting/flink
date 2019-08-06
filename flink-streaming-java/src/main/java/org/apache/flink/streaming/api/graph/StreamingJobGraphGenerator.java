@@ -99,6 +99,9 @@ public class StreamingJobGraphGenerator {
 
 	// ------------------------------------------------------------------------
 
+	/**
+	 * StreamingJobGraphGenerator 类的成员变量都是为了辅助生成最终的JobGraph。
+	 */
 	private final StreamGraph streamGraph;
 
 	/**
@@ -163,7 +166,11 @@ public class StreamingJobGraphGenerator {
 	}
 
 	/**
-	 * 根据StreamGraph生成JobGraph
+	 * 根据StreamGraph生成JobGraph。
+	 * 1.首先为所有节点生成唯一的hash id，如果节点在多次提交中没有改变(包括并发度、上下游等)，那么这个id就不会改变，这主要用于故障恢复，
+	 * 这里不能用StreamNode.id来代替，因为这是一个从1开始的静态计数变量，同样的Job可能会得到不一样的id
+	 * 2.然后就是最关键的chaining处理，和生成JobVertex、JobEdge等
+	 * 3.之后就是写入各种配置相关的信息
 	 */
 	private JobGraph createJobGraph() {
 
@@ -175,7 +182,6 @@ public class StreamingJobGraphGenerator {
 		// submission iff they didn't change.
 		// 广度优先遍历StreamGraph并为每个StreamNode生成hash id，
 		// 保证如果提交的拓扑没有改变，则每次生成的hash都是一样的
-		// 如果节点在多次提交中没有改变(包括并发度、上下游等)，那么这个id就不会改变，这主要用于故障恢复
 		Map<Integer, byte[]> hashes = defaultStreamGraphHasher.traverseStreamGraphAndGenerateHashes(streamGraph);
 
 		// Generate legacy version hashes for backwards compatibility
