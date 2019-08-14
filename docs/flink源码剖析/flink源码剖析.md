@@ -1521,8 +1521,87 @@ public void processElement(StreamRecord<IN> element) throws Exception {
 Google DataFlow 论文
 
 
-### 6. 维表join
+#### 5.9 Table API & SQL 
 
+首先 Table API 是一种关系型API，类 SQL 的API，用户可以像操作表一样地操作数据，非常的直观和方便。用户只需要说需要什么东西，系统就会自动地帮你决定如何最高效地计算它，而不需要像 DataStream 一样写一大堆 Function，优化还得纯靠手工调优。另外，SQL 作为一个“人所皆知”的语言，如果一个引擎提供 SQL，它将很容易被人们接受。这已经是业界很常见的现象了。值得学习的是，Flink 的 Table API 与 SQL API 的实现，有 80% 的代码是共用的。所以当我们讨论 Table API 时，常常是指 Table & SQL API。
+
+Table & SQL API 还有另一个职责，就是流处理和批处理统一的API层。Flink 在runtime层是统一的，因为Flink将批任务看做流的一种特例来执行，这也是 Flink 向外鼓吹的一点。然而在编程模型上，Flink 却为批和流提供了两套API （DataSet 和 DataStream）。为什么 runtime 统一，而编程模型不统一呢？ 在我看来，这是本末倒置的事情。用户才不管你 runtime 层是否统一，用户更关心的是写一套代码。这也是为什么现在 Apache Beam 能这么火的原因。所以 Table & SQL API 就扛起了统一API的大旗，批上的查询会随着输入数据的结束而结束并生成有限结果集，流上的查询会一直运行并生成结果流。Table & SQL API 做到了批与流上的查询具有同样的语法，因此不用改代码就能同时在批和流上跑。
+
+##### 5.9.1 Table API & SQL 长什么样？
+
+下面这个例子展示了如何用Table API处理温度传感器数据。计算每天每个以room开头的location的平均温度。例子中涉及了如何使用window、event-time等：
+
+```
+val sensorData: DataStream[(String, Long, Double)] = ???
+
+// convert DataSet into Table
+val sensorTable: Table = sensorData
+  .toTable(tableEnv, 'location, 'time, 'tempF)
+
+// define query on Table
+val avgTempCTable: Table = sensorTable 
+  .window(Tumble over 1.day on 'rowtime as 'w) 
+  .groupBy('location, 'w)
+  .select('w.start as 'day, 'location, (('tempF.avg - 32) * 0.556) as 'avgTempC)
+  .where('location like "room%")
+
+```
+
+下面的例子是展示了如何用SQL来实现：
+
+```
+
+val sensorData: DataStream[(String, Long, Double)] = ???
+
+// register DataStream
+tableEnv.registerDataStream("sensorData", sensorData, 'location, ’time, 'tempF)
+
+// query registered Table
+val avgTempCTable: Table = tableEnv.sql("""
+  SELECT FLOOR(rowtime() TO DAY) AS day, location, 
+    AVG((tempF - 32) * 0.556) AS  avgTempC
+  FROM sensorData
+  WHERE location LIKE 'room%'
+  GROUP BY location, FLOOR(rowtime() TO DAY) """)
+  
+```
+
+
+##### 5.9.2 Table API & SQL 原理
+
+Flink非常明智，没有像Spark那样重复造轮子（Spark Catalyst），而是将SQL校验、SQL解析以及SQL优化交给了Apache Calcite。Calcite在其他很多开源项目中也都应用到了，譬如Apache 
+
+Hive、Apache Drill、Apache Kylin、Cascading。Calcite在新的架构中处于核心的地位，如下图所示：
+
+ ![avatar](image/Calcite在Flink Table API中处于核心地位.png)
+
+构建语法树的事情全部交给了Calcite去做。SQL Query会经过Calcite解析器转变成SQL节点树，通过验证后构建成Calcite抽象语法树（也就是图中的Logical Plan）。另一边，Table 
+
+API上的调用会构建成Table API的抽象语法树，并通过Calcite提供的RelBuilder转变成Calcite的抽象语法树。
+
+以上面的温度计代码为样例，Table API 和 SQL 的转换流程如下，绿色的节点代表Flink Table Nodes，蓝色的节点代表Calcite Logical Nodes。最终都转化成了相同的Logical Plan表现形式。
+
+ ![avatar](image/Table API和SQL的转换流程图.png)
+
+之后会进入优化器，Calcite会基于优化规则来优化这些Logical Plan，根据运行环境的不同会应用不同的优化规则（Flink提供了批和流的优化规则）。这里的优化规则分为两类，一类是Calcite
+
+提供的内置优化规则（如条件下推、剪枝等），另一类是将Logical Node转变成Flink Node的规则。1,2步骤都属于Calcite的优化阶段，得到的
+
+DataStream Plan封装了如何将节点翻译成对应 DataStream/DataSet 程序的逻辑。步骤3就是将不同的 DataStream/DataSet Node 通过代码生成 (CodeGen) 翻译成最终可执行的 
+
+DataStream/DataSet 程序。
+
+ ![avatar](image/flink优化过程.png)
+
+代码生成是 Table API & SQL 中最核心的一块内容。表达式、条件、内置函数等等是需要CodeGen出具体的Function代码的，这部分跟Spark SQL的结构很相似。CodeGen 出的 Function 
+
+以字符串的形式存在。在提交任务后会分发到各个TaskManager中运行，在运行时会使用Janino编译器。
+
+
+
+
+### 6. 维表join
+FlinkKafkaProducer011
 #### 6.1 维表join语法
 
     由于维表是一张不断变化的表（静态表只是动态表的一种特例）。那如何 JOIN 一张不断变化的表呢？如果用传统的 JOIN 语法SELECT * FROM T JOIN dim_table on T.id = dim_table.id来表达维表 JOIN，是不完整的。因为维度表是一直在更新变化的，如果用这个语法那么关联上的是哪个时刻的维表呢？我们是不知道的，结果是不确定的。所以Flink SQL的维表join语法引入了 “SQL：2011 Temporal Table”的标准语法，用来声明关联的是维表哪个时刻的快照。维表join语法示例如下：
