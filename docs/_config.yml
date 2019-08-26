@@ -30,9 +30,9 @@
 version: "1.9.0"
 # For stable releases, leave the bugfix version out (e.g. 1.2). For snapshot
 # release this should be the same as the regular version
-version_title: "1.9"
+version_title: 1.9
 # Branch on Github for this version
-github_branch: "release-1.9"
+github_branch: "master"
 
 # Plain Scala version is needed for e.g. the Gradle quickstart.
 scala_version: "2.11"
@@ -47,14 +47,14 @@ github_url: "https://github.com/apache/flink"
 download_url: "http://flink.apache.org/downloads.html"
 
 # please use a protocol relative URL here
-baseurl: //ci.apache.org/projects/flink/flink-docs-release-1.9
+baseurl: //ci.apache.org/projects/flink/flink-docs-master
 stable_baseurl: //ci.apache.org/projects/flink/flink-docs-stable
 
-javadocs_baseurl: //ci.apache.org/projects/flink/flink-docs-release-1.9
-pythondocs_baseurl: //ci.apache.org/projects/flink/flink-docs-release-1.9
+javadocs_baseurl: //ci.apache.org/projects/flink/flink-docs-master
+pythondocs_baseurl: //ci.apache.org/projects/flink/flink-docs-master
 
 # Flag whether this is a stable version or not. Used for the quickstart page.
-is_stable: true
+is_stable: false
 
 # Flag to indicate whether an outdated warning should be shown.
 show_outdated_warning: false
