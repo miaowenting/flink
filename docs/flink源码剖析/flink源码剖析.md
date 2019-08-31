@@ -2237,21 +2237,45 @@ uncompletedQueue队尾，最后再创建一个空集合加到uncompletedQueue队
 
 恢复的时候，从快照中读取所有的元素全部再处理一次，当然包括之前已完成回调的元素。所以在失败恢复后，会有元素重复请求外部服务，但是每个回调的结果只会被发往下游一次。
 
-#### 5.11 状态管理
+#### 5.11 有状态流式处理引擎的基石
+
+Stateful processing
 
 ##### 5.11.1 状态容错（State Fault Tolerance）
 
+  ![avatar](image/传统批次处理方法.png)
+  
+  传统批次处理方法引发的问题，无法处理事件的顺序颠倒：
+  
+  ![avatar](image/传统批次处理方法引发的问题.png)
+  
+  理想办法，是一直累计程序运行的状态，一是有能力累计和维护大量的状态，二是有时间机制去判断是否接收到它所有所需要的数据，接着去产生结果：
+  
+  ![avatar](image/流式处理的理想方法.png)
+  
+  ![avatar](image/流式处理的理想方法2.png)
+
+  
+  Global consistent snapshot:
+  
+  每次产生检查点时，传到公共的存储如HDFS上，容错恢复时重新设定kafka的消费位置
+  
   ![avatar](image/分布式状态容错.png)
+  
+  分布式快照方法，Flink会在一个DataStream中一直安插checkpoint barrier：
   
   ![avatar](image/分布式快照方法.png)
   
-  不阻挡运算的情况下，一直产生checkpoint，并且可以并行产生多个分布式快照，checkpoint n-1、checkpoint n、checkpoint n+1，
+  不阻挡运算的情况下，一直产生checkpoint异步快照，并且可以并行产生多个分布式快照，checkpoint n-1、checkpoint n、checkpoint n+1，
   
-  以下是分布式快照的生成过程，可以想象成在填充左下角的excel表格：
+  以下是分布式快照的生成过程，可以想象成在填充左下角的表格，红色表示checkpoint barrier n应该负责的：
 
   ![avatar](image/分布式快照步骤1.png)
   
   ![avatar](image/分布式快照步骤2.png)
+  
+    
+  checkpoint barrier n跟随数据流动：
 
   ![avatar](image/分布式快照步骤3.png)
 
@@ -2303,6 +2327,7 @@ class CountWindowAggregate extends RichFlatMapFunction[(Long,Long),(Long,Long)] 
     
     override def open(parameters: Configuration): Unit = {
         sum = getRuntimeContext.getState(
+        // createTypeInformation状态数据型态资讯
         new ValueStateDescriptor[(Long,Long)] ("average",createTypeInformation[(Long,Long)]))
     }
 }
@@ -2329,8 +2354,12 @@ object ExampleCountWindowAverage extends App {
 
 ###### 5.11.2.2 状态后端配置
 
+- InMemory
+
   ![avatar](image/InMemory状态维护.png)
   
+- RocksDB
+
   ![avatar](image/RocksDB状态维护.png)
 
 
@@ -2353,8 +2382,43 @@ object ExampleCountWindowAverage extends App {
 
 ##### 5.11.3 Event-time处理
 
+  使用watermark确定Operator何时才能输出结果：
+
   ![avatar](image/Watermarks.png)
 
+###### 5.11.3.1 问题列表
+
+- 1. watermark发送之后，发现下游的窗口就不再进行运算了，剔除窗口中的异常数据有什么好的办法？
+
+  watermark必须要由input data间接定义watermark该怎么产生，当某一个input没有产生watermark，或者没有产生数据了，window operator会没有办法进展计算
+
+- 2. 多流的watermark处理内部是怎么实现的？
+
+  多个input都会产生watermark，取当前产生的所有watermark中最小的watermark
+  
+- 3. EventTime + watermark 如果超过窗口的那部分数据的EventTime了，能不能自己处理或是自己丢弃了？
+
+  SideOutput旁路输出
+  
+- 4.watermark是如何标记？
+
+  针对事件时间产生watermark，由使用者自己在回调中安插watermark，确定延迟等待的时间
+
+- 5. 如果source和operator的checkpoint相差太大，会从最小的checkpoint开始恢复吗？
+
+  No，能够被拿来被当成恢复用的快照，一定是完整填完的分布式快照，假设checkpoint barrier n 从source完整流到sink，并且被sink完全处理了，
+  
+  才能被使用。否则是不完整的checkpoint。
+  
+- 6. 做savepoint的时候，是不是停止消费比较好？
+
+  可以继续运算，例行产生savepoint。在1.9版本中会有选项，在做savepoint时可以选择停止消费，是的savepoint和停止消费是一个原子操作。
+
+- 7. 最多可以有多少份快照同时处理呢？
+
+  理论上没有上限，但是如果是写入到kafka中这种事物的场景，尽量不要并行做太多快照。Flink1.6以后可以local recovery，减少读取HDFS的开销
+  
+  
 
 ##### 5.11.4 状态保存与迁移
 
@@ -2383,11 +2447,21 @@ object ExampleCountWindowAverage extends App {
 
 ###### 5.11.4.2 保存点
 
-可以想成：一个手动产生的检查点（Checkpoint）
+  可以想成：一个手动产生的检查点（Checkpoint）
 
+  保存点的作用，在运维上有以下几个重要考量：
+  
+  - 更改应用逻辑/修bug等，将前一执行的状态迁移到新的执行
+  - 重新定义程序的并行度
+  - 升级flink集群的版本，如从1.7升级到1.8
+  
   ![avatar](image/保存点含义.png)
   
+  执行停止之前，产生一个保存点，如可以放JVM钩子函数中执行：
+  
   ![avatar](image/手动生成一个保存点.png)
+  
+  从保存点恢复执行，并且利用EventTime处理赶上最新的数据：
   
   ![avatar](image/从保存点开始恢复应用.png)
 
