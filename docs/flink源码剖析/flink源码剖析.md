@@ -439,19 +439,124 @@ Flink包含了一个metric系统，可采集用户范围/系统范围的监控�
 系统级监控（CPU、内存、线程、I/O、垃圾回收、网络）
 应用级监控（可用性、检查点、连接器、存储后端压力、事件时间与窗口、延迟）
 
-#### 4.2 Checkpoint监控
+监控分为两部分，即 Metrics 和 Reporter ，Metrics 用于度量指标，Reporter用于向监控展示工具实时上传指标。
+
+
+##### 4.1.1 指标类型
+
+下面以 RichMapFunction 演示各种指标类型：
+
+```
+
+class MyMapper extends RichMapFunction[String,String] {
+    // 变量counter是计数器的瞬时值，不参与序列化
+    @transient private var counter: Counter = _
+    
+    @transient private var gauge = 0
+    
+    @transient private var histogram: Histogram = _
+
+    @transient private var meter: Meter = _
+
+    override def open(parameters: Configuration): Unit = {
+    
+        // 在map初始化时，定义名字为myCounter的Counter
+        counter = getRuntimeContext()
+            .getMetricGroup()
+            .counter("myCounter")
+            
+        // 直接获取Gauge值
+        getRuntimeContext()
+            .getMetricGroup()
+            .gauge[Int, ScalaGauge[Int]] ("myGauge", ScalaGauge[Int]( () => gauge )) 
+            
+        // 定义直方图窗口
+        Histogram dropwizardHistogram = new Histogram(new SlidingWindowReservoir(500))  
+        histogram = getRuntimeContext()
+            .getMetricGroup()
+            .histogram("myHistogram", new DropwizardHistogramWrapper(dropwizardHistogram))
+            
+        Meter dropwizardMeter = new Meter()
+        meter = getRuntimeContext()
+            .getMetricGroup()
+            .meter("myMeter", new DropwizardMeterWrapper(dropwizardMeter))
+    }
+    
+    override def map(value: String): String = {
+        
+        // 计数器加1
+        counter.inc()
+        
+        gauge += 1
+        
+        // 更新value的值
+        histogram.update(value)
+        
+        // 标记事件的出现
+        meter.markEvent()
+        
+        // 将字符串转成小写格式
+        value.toLowerCase
+    }
+}
+
+```
+
+##### 4.1.2 指标作用域
+
+（1）用户自定义作用域
+
+    MetricGroup.addGroup()
+
+（2）系统级作用域
+
+    <host>.<job_name>.<task_name>.<operator_name>.<subtask_index>
+
+#### 4.2 监控配置Reporter
+
+Flink提供以下Reporter：JMX、Graphite、Prometheus、StatsD、Datadog、Slf4j
+
+- JMX 
+
+```
+metrics.repoter.jmx.class: org.apache.flink.metrics.jmx.JMXReporter
+metrics.repoter.jmx.port: 8769
+
+```
+
+- Graphite
+
+```
+metrics.repoter.graph.class: org.apache.flink.metrics.graphite.GraphiteReporter
+metrics.repoter.graph.host: localhost
+metrics.repoter.graph.port: 2003
+metrics.repoter.graph.protocol: TCP
+
+
+```
+
+- Slf4j
+
+```
+metrics.repoter.slf4j.class: org.apache.flink.metrics.slf4j.Slf4jReporter
+// 文件切分的时间间隔
+metrics.repoter.slf4j.interval: 60 SECONDS
+
+```
+
+#### 4.3 Checkpoint监控
 
 Flink提供了dashboard用于监控Job的checkpoint。即使Job完成运行，对应的checkpoint统计数据仍然是可以查询的。
 
 详情可以参考https://ci.apache.org/projects/flink/flink-docs-release-1.4/monitoring/checkpoint_monitoring.html。
 
-#### 4.3 Back Pressure监控
+#### 4.4 Back Pressure监控
 
 如果你看到一个task的背压（back pressure）告警，这表示这个task产生数据的速度超过了下游operator的消费速度。数据在job flow中是按照从source到sink的方向流动的，而背压是沿着相反的方向传播。
 
 详情可以参考https://ci.apache.org/projects/flink/flink-docs-release-1.4/monitoring/back_pressure.html。
 
-#### 4.4 监控REST API
+#### 4.5 监控REST API
 
 Flink基于Netty提供了一组监控API用于查询正在运行/最近完成的Job的状态和统计数据，这些API用于输出监控数据给Flink自身的Dashboard，但是也可以用于开发定制化的监控工具。
 
