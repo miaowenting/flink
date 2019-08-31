@@ -56,6 +56,7 @@ public interface ReduceFunction<T> extends Function, Serializable {
 	 * @param value2 The second value to combine.
 	 * @return The combined value of both input values.
 	 *
+	 * 将每个窗口内的数据作为输入，输出一个计算结果
 	 * @throws Exception This method may throw exceptions. Throwing an exception will cause the operation
 	 *                   to fail and may trigger recovery.
 	 */

@@ -1050,6 +1050,37 @@ Window，无重叠），滚动窗口（Sliding Window，有重叠），和会话
 
 上图中，raw data stream 代表用户的购买行为流，圈中的数字代表用户本次购买的商品个数，事件是按时间分布的，所以可以看出事件之间是有time gap的。
 
+
+窗口是另一类算子，是DataStream的逻辑边界，在第一个元素到达后被创建，在生命周期结束后被销毁。除了开窗机制，应用程序还可以定义触发器、迟到生存期、窗口聚合函数、
+及清除器。
+
+窗口分为两大类，即Keyed Window和Non-Keyed Window。在KeyedStream上定义window(...)得到Keyed Window，在DataSrteam上定义windowAll(...)得到
+Non-Keyed Window。以下是这两类窗口的定义与转换，并不是所有转换应用程序都需要，其中标记为[...]的转换是可选操作：
+
+```
+// Keyed Window定义与转换
+stream
+    .keyBy(...)
+    .window(...)
+    [.trigger(...)]
+    [.evictor(...)]
+    [.allowedLateness(...)]
+    [.sideOutputLateData(...)]
+    .reduce/aggreate/...
+    [.getSideOutput(...)]
+
+// Non-Keyed Window定义与转换
+stream
+    .windowAll(...)
+    [.trigger(...)]
+    [.evictor(...)]
+    [.allowedLateness(...)]
+    [.sideOutputLateData(...)]
+    .reduce/aggreate/...
+    [.getSideOutput(...)]
+    
+```
+
 ###### 5.8.1.1 Time Window
 
 Time Window 是根据时间对数据流进行分组的。这里涉及到了流处理中的时间问题，时间问题和消息乱序问题是紧密相连的，是流处理中现存的难题之一。Flink提出的3种时间概念，分别是event time(事件时间：事件发生时的时间)
@@ -1149,14 +1180,274 @@ val sessionCnts: DataStream[(Int, Int)] = vehicleCnts
   .window(ProcessingTimeSessionWindows.withGap(Time.seconds(30)))
   .sum(1)
   
-
+// 动态时间间隔的处理时间会话窗口
+input
+  .keyBy(0)
+  .window(DynamicProcessingTimeSessionWindows.withDynamicGap(new
+    SessionWindowTimeGapExtractor[Event]{
+        override def extract(element: Event): Long = {
+            // 根据事件特征确定会话窗口间隔
+            ...
+        }
+    }))
+    .<windowed transformation>(<window function>)
+    
+// 固定时间间隔为10s的事件事件会话窗口
+input
+  .keyBy(0)
+  .window(EventTimeSessionWindows.withGap(Time.minutes(10)))
+  .<windowed transformation>(<window function>)
+  
+// 动态时间间隔的事件时间会话窗口
+input
+  .keyBy(0)
+  .window(EventTimeSessionWindows.withDynamicGap(new
+    SessionWindowTimeGapExtractor[Event]{
+        override def extract(element: Event): Long = {
+            // 根据事件特征确定会话窗口间隔
+            ...
+        }
+    }))
+    .<windowed transformation>(<window function>)
+    
 ```
  一般而言，window是无限的流上定义一个有限的元素集合。这个集合可以是基于时间的，元素个数的，时间和个数结合的，会话间隙的，或者是自定义的。Flink的
 
 DataStream API 提供了简洁的算子来满足常用的窗口操作，同时提供了通用的窗口机制来允许用户自己定义窗口分配逻辑。    
 
+###### 5.8.1.4 Global Window
 
-##### 5.8.2 剖析Window API
+全局窗口将相同key的所有元素聚在一起，但是这种窗口没有起点也没有终点，因此必须自定义触发器：
+
+```
+
+input
+  .keyBy(0)
+  .window(GlobalWindows.create())
+  .<windowed transformation>(<window function>)
+
+```
+    
+    
+##### 5.8.2 窗口函数
+
+###### 5.8.2.1 reduce函数
+
+将每个窗口内的数据作为输入，输出一个计算结果
+以下代码计算窗口内所有元素第二个属性的和
+
+```
+
+val input: DataStream[(String,Long)] = ...
+
+input
+  .keyBy(<key selector>)
+  .window(<window assigner>)
+  .reduce{(v1,v2) => (v1._1,v1._2 + v2._2)}
+  
+```
+
+###### 5.8.2.2 聚合函数
+
+聚合函数有三个泛型参数，IN：窗口内数据类型，ACC：累加器类型，存放临时聚合结果，OUT：聚合结果类型。
+
+以下是聚合函数的例子：
+
+```
+
+// 定义聚合函数
+class AverageAggregate extends AggregateFunction[(String,Long),(Long,Long),Double]{
+    
+    // 初始化累加器
+    override def createAccumulator() = (0L,0L)
+    
+    // 累加器的第一个元素为元素累加和，累加器的第二个参数为元素数量
+    override def add(value: (String,Long), accumulator: (Long,Long)) = 
+       (accumulator._1 + value._2, accumulator._2 + 1)
+       
+    // 输出平均值
+    override def getResult(accumulator: (Long,Long)) = accumulator._1 / accumulator._2
+    
+    // 聚合函数调用merge()合并两个窗口的聚合结果
+    override def merge(a: (Long,Long), b: (Long,Long)) = 
+        (a._1 + b._1 , a._2 + b._2)
+}
+
+
+val input: DataStream[(String, Long)] = ...
+input
+  .keyBy(<key selector>)
+  .window(<window assigner>)
+  .aggregate(new AverageAggregate)
+
+```
+
+###### 5.8.2.3 处理函数
+
+处理函数可通过迭代器访问窗口内所有的元素，并可访问窗口上下文，其转换结果是多值的(Collector<OUT>)
+窗口上下文包括开窗机制、处理时间、水印、状态等
+下例计算了每一个窗口内元素的数量，并将数量信息发射到输出流中：
+
+```
+val input: DataStream[(String, Long)] = ...
+
+input
+  .keyBy(_._1)
+  .timeWindow(Time.minutes(5))
+  .process(new MyProcessWindowFunction())
+
+// 自定义处理函数，IN，OUT，KEY，Window
+class MyProcessWindowFunction extends ProcessWindowFunction[(String,Long),String,String,TimeWindow]{
+    def process(key:String, context:Context, input:Iterable[(String,Long)], out:Collector[String]): () = {
+        var count = 0L;
+        for( in <- input){
+            count = count + 1;
+        }
+        out.collect(s"Window ${context.window} count: $count");
+    }
+}
+
+```
+
+###### 5.8.2.4 带窗口函数的聚合函数
+
+WindowedStream类重载了aggregate方法，其中一种重载方法带有ReduceFunction和ProcessWindowFunction参数：
+
+```
+public <ACC,V,R> SingleOutputStreamOperator<R> aggregate(
+    AggregateFunction<T,ACC,R> aggFunction,
+    WindowFunction<V,R,K,W> windowFunction){
+...
+}
+
+```
+
+下例中，聚合函数增量式计算均值，ProcessWindowFunction实时输出均值结果：
+
+```
+val input: DataStream[(String, Long)] = ...
+
+input
+  .keyBy(_._1)
+  .timeWindow(Time.minutes(5))
+  .aggregate(new AverageAggregate(),new MyProcessWindowFunction())
+  
+// 定义聚合函数
+class AverageAggregate extends AggregateFunction[(String,Long),(Long,Long),Double]{
+    
+    // 初始化累加器
+    override def createAccumulator() = (0L,0L)
+    
+    // 累加器的第一个元素为元素累加和，累加器的第二个参数为元素数量
+    override def add(value: (String,Long), accumulator: (Long,Long)) = 
+       (accumulator._1 + value._2, accumulator._2 + 1)
+       
+    // 输出平均值
+    override def getResult(accumulator: (Long,Long)) = accumulator._1 / accumulator._2
+    
+    // 聚合函数调用merge()合并两个窗口的聚合结果
+    override def merge(a: (Long,Long), b: (Long,Long)) = 
+        (a._1 + b._1 , a._2 + b._2)
+}
+
+// 自定义处理函数，IN，OUT，KEY，Window
+class MyProcessWindowFunction extends ProcessWindowFunction[Double,(String,Double),String,TimeWindow]{
+    def process(key:String, context:Context, averages:Iterable[(String,Double)], out:Collector[String,Double]): () = {
+        // 输出当前均值
+        val average = averages.iterator.next();
+        out.collect((key,average));
+    }
+}
+
+```
+
+##### 5.8.3 触发器 
+
+触发器原型中包括4类触发机制，基于事件驱动。
+
+1）onElement: 窗口每收到一个元素调用一次该方法，返回结果决定是否触发算子函数
+
+2）onProcessingTime: 根据注册的处理时间定时器触发，定时时间由参数time(long time)设定
+
+3）onEventTime: 根据注册的事件时间定时器触发，定时时间由参数time设定
+
+4）onMerge: 两个窗口合并时触发
+
+Trigger类：
+
+```
+
+public abstract class Trigger<T,W extends Window> implements Serializable {
+
+    TriggerResult onElement()
+    TriggerResult onProcessingTime()
+    TriggerResult onEventTime()
+    boolean canMerge()
+    void onMerge()
+    void clear()
+    
+    public interface TriggerContext{
+    }
+    
+    public interface OnMergeContext extends TriggerContext{
+    }
+    
+}
+
+```
+
+前3类触发机制的结果可以分为4种：
+
+1）忽略（CONTINUE）
+
+2）触发（FIRE）
+
+3）清除（PURGE）：清除窗口内所有元素，窗口被销毁
+
+4）触发并清除（FIRE_AND_PURGE）：触发窗口函数，并在函数执行结束后清空窗口内所有元素，窗口被销毁。
+
+Flink提供的内置触发器：
+
+- EventTimeTrigger：根据事件时间轴上的水印触发
+- ProcessingTimeTrigger：根据处理时间触发
+- CountTrigger：根据窗口内元素的数量触发
+- ContinuousEventTimeTrigger：将事件时间轴分成等间隔的窗格，在每一个窗格内判断水印来决定是否触发
+- ContinuousProcessingTimeTrigger：将处理时间轴分成等间隔的窗口，在每一个窗格内触发一次，但是需要根据相关条件判断是否调用窗口函数
+- DeltaTrigger：根据某种特征是否超过指定阈值决定是否触发
+- PurgingTrigger：将其他触发器转换成清除触发器，即销毁窗口
+
+
+##### 5.8.4 清除器
+
+Evictor在触发器触发后，窗口函数执行前或执行后清除窗口内元素：
+
+evictBefore
+evictAfter
+
+Flink提供的内置清除器：
+
+- CountEvictor：保持窗口内元素为预定值
+- DeltaEvictor：根据元素之间的关系，清除超过指定阈值的元素
+- TimeEvictor：根据窗口内元素的时间戳决定清除哪些元素
+
+
+##### 5.8.5 迟到生存期
+
+Flink默认的迟到生存期为0，即事件时间窗口在水印到来后结束，无需考虑事件迟到的情况。
+
+```
+
+val input: DataStream[T] = ...
+
+input
+  .keyBy(...)
+  .window(...)
+  .allowedLateness(Time.seconds(10))
+  ...
+  
+```
+
+##### 5.8.6 剖析Window API
 
 得益于Flink Window API的松耦合设计，我们可以非常灵活地定义符合特定业务的窗口。Flink中定义一个窗口主要需要以下三个组件。
 
@@ -1182,7 +1473,7 @@ DataStream API 提供了简洁的算子来满足常用的窗口操作，同时�
 上述三个组件的不同实现的不同组合，可以定义出非常复杂的窗口。Flink中内置的窗口也是基于这三个组件构成的，当然内置窗口有时候无法解决用户特殊的需求，所以Flink也暴露了这些窗口机制的内部接口供用户实现自定义的窗口。
 
 
-##### 5.8.3 Window的实现
+##### 5.8.7 Window的实现
 
 ![avatar](image/Flink的窗口机制以及各组件之间是如何相互工作的.png)
 
@@ -1210,11 +1501,11 @@ Flink对于一些聚合类的窗口计算（如sum、min）做了优化，因为
 这样可以大大降低内存的消耗并提升性能。但是如果用户定义了Evictor，则不会启用对聚合窗口的优化，因为Evictor需要遍历窗口中的所有元素，必须要将窗口中所有元素都存下来。
 
 
-##### 5.8.4 源码分析
+##### 5.8.8 源码分析
 
 上述的三个组件构成了 Flink 的窗口机制。为了更清楚地描述窗口机制，以及解开一些疑惑（比如 purge 和 Evictor 的区别和用途），我们将一步步地解释 Flink 内置的一些窗口（Time Window，Count Window，Session Window）是如何实现的。
 
-###### 5.8.4.1 Count Window实现
+###### 5.8.8.1 Count Window实现
 
 Count Window是使用三组件的典范，我们可以在KeyedStream上创建 Count Window，源码如下所示：
 
@@ -1249,7 +1540,7 @@ public WindowedStream<T, KEY, GlobalWindow> countWindow(long size, long slide) {
 
 
 
-##### 5.8.4.2 Time Window实现
+###### 5.8.8.2 Time Window实现
 
 同样地，我们可以在KeyedStream上申请Time Window，其源码如下所示：
 
@@ -1336,7 +1627,7 @@ public class ProcessingTimeTrigger extends Trigger<Object, TimeWindow> {
 
 
 
-##### 5.8.4.3 Session Window实现
+###### 5.8.8.3 Session Window实现
 
 当我们需要分析用户的一段交互的行为事件时，通常的想法是将用户的事件按照 session 
 来分组。session是指一段持续活跃的期间，由活跃间隙分隔开。通俗一点说，消息之间的间隔小于超时阈值（sessionGap）的，则被分配到同一个窗口，间隔大于阈值的，则被分配到不同的窗口。
@@ -1598,7 +1889,9 @@ DataStream/DataSet 程序。
 以字符串的形式存在。在提交任务后会分发到各个TaskManager中运行，在运行时会使用Janino编译器。
 
 
-#### 5.10 Async I/O
+#### 5.10 连接器
+
+##### 5.10.1 Async I/O
 
  主要目的是为了解决与外部系统交互时网络延迟成了系统瓶颈的问题。
  
@@ -1676,7 +1969,7 @@ AsyncWaitOperator主要由两部分组成：StreamElementQueue 和 Emitter 。
 实际上 AsyncCollector 是一个 Promise ，也就是 P5，在调用 collect 的时候会标记 Promise 为完成状态，并通知 Emitter 线程有完成的消息可以发送了。
 Emitter 就会从队列中拉取完成的 Promise ，并从 Promise 中取出消息发送给下游。
 
-##### 5.10.1 消息的顺序性
+###### 5.10.1.1 消息的顺序性
 
 Async I/O 提供了两种输出模式。细分有三种模式：有序、ProcessingTime无序、EventTime无序。Flink使用队列来实现不同的输出模式，并抽象出一个队列的接口（StreamElementQueue），
 这种分层设计使得AsyncWaitOperator和Emitter不用关心消息的顺序问题。StreamElementQueue有两种具体实现，分别是 OrderedStreamElementQueue 和 UnorderedStreamElementQueue。
@@ -1722,6 +2015,114 @@ uncompletedQueue队尾，最后再创建一个空集合加到uncompletedQueue队
 （3）执行快照操作
 
 恢复的时候，从快照中读取所有的元素全部再处理一次，当然包括之前已完成回调的元素。所以在失败恢复后，会有元素重复请求外部服务，但是每个回调的结果只会被发往下游一次。
+
+#### 5.11 状态管理
+
+##### 5.11.1 托管的Keyed State
+
+该类状态的数据结构由引擎定义，Flink运行时负责序列化及写入后端状态。当并行度改变时，Flink负责重新拆分托管状态到各个实例上。
+
+Flink内置的托管的Keyed State：
+
+- ValueState<T>: 状态是单值的
+- ListState<T>: 状态是多值的
+- ReducingState<T>: Reduce函数的状态
+- AggregatingState<IN,OUT>: 聚合函数的状态
+- MapState<UK,UV>: Map函数的状态
+
+下例以求和为例，编程实现托管ValueState状态：
+
+```
+
+// 定义flatMap函数
+class CountWindowAggregate extends RichFlatMapFunction[(Long,Long),(Long,Long)] {
+    // ValueState的数据类型为（Long,Long）元组
+    private var sum: ValueState[(Long,Long)] = _
+    override def flatMap(input: (Long,Long), output: Collector[(Long,Long)]): Unit = {
+        // 读取状态值
+        val tmpCurrentSum = sum.value
+        val currentSum = if(tmpCurrentSum != null) {
+            tmpCurrentSum
+        } else {
+            (0L,0L)
+        }
+        val newSum = (currentSum._1 + 1, currentSum._2 + input._2)
+        // 更新状态
+        sum.update(newSum)
+        // 求和计数，当数量为2时输出中间结果并清空状态
+        if (newSum._1 > 2){
+            output.collect((input._1, newSum._2))
+            sum.clear()
+        }
+    }
+    
+    override def open(parameters: Configuration): Unit = {
+        sum = getRuntimeContext.getState(
+        new ValueStateDescriptor[(Long,Long)] ("average",createTypeInformation[(Long,Long)]))
+    }
+}
+
+
+object ExampleCountWindowAverage extends App {
+
+    val env = StreamExecutionEnvironment.getExecutionEnvironment
+    env.fromCollection(List(
+        (1L,3L),
+        (1L,5L),
+        (1L,7L),
+        (1L,4L),
+        (1L,3L)
+    )).keyBy(_._1)
+      .flatMap(new CountWindowAggregate())
+      .print()
+    env.execute("ExampleManagedState") 
+}
+
+```
+
+以上代码的输出为(1,8),(1,11)
+
+##### 5.11.2 状态后端配置
+
+状态后端可通过Flink配置文件配置，也可以在每个Job中单独配置。
+
+```
+
+    val env = StreamExecutionEnvironment.getExecutionEnvironment
+    
+    // JVM堆内存、JVM对外存
+    env.setStateBackend(new MemoryStateBackend(MAX_MEM_STATE_SIZE,true))
+    
+    // 分布式文件系统
+    env.setStateBackend(new FsStateBackend(path,true))
+    
+    // RocksDB，这种方式可以实现增量式状态
+    env.setStateBackend(hdfs://namenode:40010/flink/checkpoints)
+
+```
+
+#### 5.12 检查点
+
+```
+
+    val env = StreamExecutionEnvironment.getExecutionEnvironment
+    
+    // 启用检查点，设置两个检查点之间的最小间隔为1000ms
+    env.enableCheckingPoint(1000)
+    
+    // 设置一致性级别为EXACTLY_ONCE
+    env.getCheckpointConfig.setCheckpointingMode(CheckpointingMode.EXACTLY_ONCE)
+
+    // 设置检查点超时时间为60000ms。如果在60000ms内没有完成，则丢弃这个检查点
+    env.getCheckpointConfig.setCheckpointTimeout(60000)
+    
+    // 设置快照失败后任务继续正常执行
+    env.getCheckpointConfig.setFailTasksOnCheckpointingErrors(false)
+    
+    // 设置并发检查点数量为1
+    env.getCheckpointConfig.setMaxConcurrentCheckpoints(1)
+
+```
 
 ### 6. 维表join
 

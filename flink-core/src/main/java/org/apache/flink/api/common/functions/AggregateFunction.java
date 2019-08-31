@@ -106,8 +106,11 @@ import java.io.Serializable;
  * }</pre>
  *
  * @param <IN>  The type of the values that are aggregated (input values)
+ *              窗口类数据类型
  * @param <ACC> The type of the accumulator (intermediate aggregate state).
+ *             累加器类型，累加器存放临时聚合结果
  * @param <OUT> The type of the aggregated result
+ *             聚合结果类型
  */
 @PublicEvolving
 public interface AggregateFunction<IN, ACC, OUT> extends Function, Serializable {
@@ -121,6 +124,7 @@ public interface AggregateFunction<IN, ACC, OUT> extends Function, Serializable 
 	 * <p>The accumulator is the state of a running aggregation. When a program has multiple
 	 * aggregates in progress (such as per key and window), the state (per key and window)
 	 * is the size of the accumulator.
+	 * 初始化累加器
 	 *
 	 * @return A new accumulator, corresponding to an empty aggregate.
 	 */
@@ -132,14 +136,17 @@ public interface AggregateFunction<IN, ACC, OUT> extends Function, Serializable 
 	 *
 	 * <p>For efficiency, the input accumulator may be modified and returned.
 	 *
+	 * 调用add实现增量计算
 	 * @param value The value to add
 	 * @param accumulator The accumulator to add the value to
+	 *
 	 */
 	ACC add(IN value, ACC accumulator);
 
 	/**
 	 * Gets the result of the aggregation from the accumulator.
 	 *
+	 * 返回聚合结果
 	 * @param accumulator The accumulator of the aggregation
 	 * @return The final aggregation result.
 	 */
@@ -152,6 +159,7 @@ public interface AggregateFunction<IN, ACC, OUT> extends Function, Serializable 
 	 * and return that. The assumption is that the given accumulators will not be used any
 	 * more after having been passed to this function.
 	 *
+	 * 在窗口合并时，聚合函数调用merge()合并两个窗口的聚合结果
 	 * @param a An accumulator to merge
 	 * @param b Another accumulator to merge
 	 *

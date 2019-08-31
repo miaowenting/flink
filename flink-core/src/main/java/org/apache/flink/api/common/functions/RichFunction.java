@@ -25,6 +25,7 @@ import org.apache.flink.configuration.Configuration;
  * An base interface for all rich user-defined functions. This class defines methods for
  * the life cycle of the functions, as well as methods to access the context in which the functions
  * are executed.
+ * 提供处理函数生命周期及获取函数上下文能力的算子函数
  */
 @Public
 public interface RichFunction extends Function {
@@ -62,6 +63,8 @@ public interface RichFunction extends Function {
 	 *                   decide whether to retry the task execution.
 	 *
 	 * @see org.apache.flink.configuration.Configuration
+	 *
+	 * 自定义初始化
 	 */
 	void open(Configuration parameters) throws Exception;
 
@@ -75,6 +78,8 @@ public interface RichFunction extends Function {
 	 * @throws Exception Implementations may forward exceptions, which are caught by the runtime. When the
 	 *                   runtime catches an exception, it aborts the task and lets the fail-over logic
 	 *                   decide whether to retry the task execution.
+	 *
+	 * 自定义销毁处理函数
 	 */
 	void close() throws Exception;
 
@@ -92,6 +97,7 @@ public interface RichFunction extends Function {
 	 * {@link org.apache.flink.api.common.cache.DistributedCache}.
 	 *
 	 * @return The UDF's runtime context.
+	 * 上下文操作函数
 	 */
 	RuntimeContext getRuntimeContext();
 
