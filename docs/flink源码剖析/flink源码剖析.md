@@ -65,6 +65,24 @@ data source：数据源可以是基于文件的、基于socket的、基于集合
 
 data sink：可以将经过各种算子处理后的数据流写到文件、csv、socket中，也可以写到自定义的sink（如kafka）。
 
+- 分布式流处理的基本模型:
+![avatar](image/分布式流处理的基本模型.png)
+
+- 流处理API的衍变:
+![avatar](image/流处理API的衍变.png)
+
+- DataStream操作概览:
+![avatar](image/DataStream操作概览.png)
+
+- DataStream基本转换:
+![avatar](image/DataStream基本转换.png)
+
+- 理解KeyedStream:
+![avatar](image/理解KeyedStream.png)
+
+- DataStream物理分组
+![avatar](image/DataStream物理分组.png)
+
 
 ###### 1.2.1.2 DataSet API
 
