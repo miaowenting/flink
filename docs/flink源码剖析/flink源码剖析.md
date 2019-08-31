@@ -394,7 +394,19 @@ flink-conf.yaml:
 
 ### 3. 安装部署
 
-#### 3.1 安装步骤
+#### 3.1 Flink on YARN
+
+![avatar](image/Flink_on_yarn模式下yarn_client提交流程图.png)
+
+
+（1）YARN Client首先检测YARN和HDFS的配置，读取加载flink-conf.yaml、hdfs-site.xml、core-site.xml、yarn-site.xml，上传
+    相关Flink Jar包和相关配置信息（包括keytab等）到HDFS。其中，YARN Client被Flink编译进安装包。
+    
+（2）Client 向YARN集群申请AM容器以启动Flink的 JobManager
+ 
+（3）JobManager 申请容器以启动TaskManager
+
+
 
 #### 3.2 启动脚本
 
@@ -425,6 +437,33 @@ Flink提供的CLI脚本是bin/flink，可以通过该脚本提交Job、创建Sav
 
 解析提取flink-yaml.xml中的配置项。
 通过Client入口org.apache.flink.client.CliFrontend连接到JobManager并发送消息。
+
+
+#### 3.4 访问安全
+
+![avatar](image/Flink的访问安全.png)
+
+- 访问安全配置
+
+```
+akka.ssl.enabled: false
+blob.service.ssl.enabled: true
+jobmanager.web.accesslog.enable: true
+jobmanager.web.ssl.enabled: false
+nettyconnector.ssl.enabled: false
+security.ssl.algorithms: TLS_RSA_WITH_AES_128_CBC_SHA256,TLS_DHE_RSA_WITH_AES_128_CBC_SHA256,TLS_DHE_DSS_WITH_AES_128_CBC_SHA256
+security.ssl.enabled: false
+security.ssl.key-password: 123456
+security.ssl.keystore-password: 123456
+security.ssl.keystore: /opt/third/Flinkclient/Flink/flink/conf//flink.keystore
+security.ssl.protocol: TLSv1.2
+security.ssl.truststore-password: 123456
+security.ssl.truststore: /opt/third/Flinkclient/Flink/flink/conf//flink.truststore
+security.ssl.verify-hostname: false
+taskmanager.data.ssl.enabled: false
+
+```
+
 
 ### 4. 监控
 
