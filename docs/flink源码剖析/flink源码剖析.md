@@ -2239,7 +2239,31 @@ uncompletedQueue队尾，最后再创建一个空集合加到uncompletedQueue队
 
 #### 5.11 状态管理
 
-##### 5.11.1 托管的Keyed State
+##### 5.11.1 状态容错（State Fault Tolerance）
+
+  ![avatar](image/分布式状态容错.png)
+  
+  ![avatar](image/分布式快照方法.png)
+  
+  不阻挡运算的情况下，一直产生checkpoint，并且可以并行产生多个分布式快照，checkpoint n-1、checkpoint n、checkpoint n+1，
+  
+  以下是分布式快照的生成过程，可以想象成在填充左下角的excel表格：
+
+  ![avatar](image/分布式快照步骤1.png)
+  
+  ![avatar](image/分布式快照步骤2.png)
+
+  ![avatar](image/分布式快照步骤3.png)
+
+  ![avatar](image/分布式快照步骤4.png)
+
+  ![avatar](image/分布式快照步骤5.png)
+
+  
+  
+##### 5.11.2 状态维护
+
+###### 5.11.2.1 托管的Keyed State
 
 该类状态的数据结构由引擎定义，Flink运行时负责序列化及写入后端状态。当并行度改变时，Flink负责重新拆分托管状态到各个实例上。
 
@@ -2303,7 +2327,12 @@ object ExampleCountWindowAverage extends App {
 
 以上代码的输出为(1,8),(1,11)
 
-##### 5.11.2 状态后端配置
+###### 5.11.2.2 状态后端配置
+
+  ![avatar](image/InMemory状态维护.png)
+  
+  ![avatar](image/RocksDB状态维护.png)
+
 
 状态后端可通过Flink配置文件配置，也可以在每个Job中单独配置。
 
@@ -2311,7 +2340,7 @@ object ExampleCountWindowAverage extends App {
 
     val env = StreamExecutionEnvironment.getExecutionEnvironment
     
-    // JVM堆内存、JVM对外存
+    // JVM堆内存、JVM对外存，小状态
     env.setStateBackend(new MemoryStateBackend(MAX_MEM_STATE_SIZE,true))
     
     // 分布式文件系统
@@ -2322,7 +2351,14 @@ object ExampleCountWindowAverage extends App {
 
 ```
 
-#### 5.12 检查点
+##### 5.11.3 Event-time处理
+
+  ![avatar](image/Watermarks.png)
+
+
+##### 5.11.4 状态保存与迁移
+
+###### 5.11.4.1 检查点
 
 ```
 
@@ -2344,6 +2380,17 @@ object ExampleCountWindowAverage extends App {
     env.getCheckpointConfig.setMaxConcurrentCheckpoints(1)
 
 ```
+
+###### 5.11.4.2 保存点
+
+可以想成：一个手动产生的检查点（Checkpoint）
+
+  ![avatar](image/保存点含义.png)
+  
+  ![avatar](image/手动生成一个保存点.png)
+  
+  ![avatar](image/从保存点开始恢复应用.png)
+
 
 ### 6. 维表join
 
