@@ -436,6 +436,9 @@ Flink包含了一个metric系统，可采集用户范围/系统范围的监控�
 
 详情可参考https://ci.apache.org/projects/flink/flink-docs-release-1.4/monitoring/metrics.html。
 
+系统级监控（CPU、内存、线程、I/O、垃圾回收、网络）
+应用级监控（可用性、检查点、连接器、存储后端压力、事件时间与窗口、延迟）
+
 #### 4.2 Checkpoint监控
 
 Flink提供了dashboard用于监控Job的checkpoint。即使Job完成运行，对应的checkpoint统计数据仍然是可以查询的。
@@ -1814,6 +1817,8 @@ Google DataFlow 论文
 
 #### 5.9 Table API & SQL 
 
+关系型API统一了DataStream API 和DataSet API 
+
 首先 Table API 是一种关系型API，类 SQL 的API，用户可以像操作表一样地操作数据，非常的直观和方便。用户只需要说需要什么东西，系统就会自动地帮你决定如何最高效地计算它，而不需要像 DataStream 一样写一大堆 Function，优化还得纯靠手工调优。另外，SQL 作为一个“人所皆知”的语言，如果一个引擎提供 SQL，它将很容易被人们接受。这已经是业界很常见的现象了。值得学习的是，Flink 的 Table API 与 SQL API 的实现，有 80% 的代码是共用的。所以当我们讨论 Table API 时，常常是指 Table & SQL API。
 
 Table & SQL API 还有另一个职责，就是流处理和批处理统一的API层。Flink 在runtime层是统一的，因为Flink将批任务看做流的一种特例来执行，这也是 Flink 向外鼓吹的一点。然而在编程模型上，Flink 却为批和流提供了两套API （DataSet 和 DataStream）。为什么 runtime 统一，而编程模型不统一呢？ 在我看来，这是本末倒置的事情。用户才不管你 runtime 层是否统一，用户更关心的是写一套代码。这也是为什么现在 Apache Beam 能这么火的原因。所以 Table & SQL API 就扛起了统一API的大旗，批上的查询会随着输入数据的结束而结束并生成有限结果集，流上的查询会一直运行并生成结果流。Table & SQL API 做到了批与流上的查询具有同样的语法，因此不用改代码就能同时在批和流上跑。
@@ -1888,6 +1893,78 @@ DataStream/DataSet 程序。
 
 以字符串的形式存在。在提交任务后会分发到各个TaskManager中运行，在运行时会使用Janino编译器。
 
+##### 5.9.3 Table运行时
+
+TableEnvironment以目录(catalog)的形式管理Schema的元数据与命名空间，如表和UDF，在TableEnvironment实例化时根Schema被创建。
+
+TableEnvironment承担如下任务：
+
+1）负责表的管理。目录管理Schema的元数据与命名空间
+
+2）SQL查询。Flink规定同一查询（如join、union）的表不能定义在不同的运行时环境中
+
+3）UDF管理
+
+4）将DataStream和DataSet转换成表
+
+5）管理StreamExecutionEnvironment和ExecutionEnvironment对象的引用
+
+##### 5.9.4 表注册
+
+（1）输入表的注册途径
+
+- 已有表实例，如Table API或SQL查询的结果，代码如下：
+
+```
+
+    val projTable = tableEnv.scan("X").select(...)
+    
+    tableEnv.registerTable("projectedTable",projTable)
+    
+```
+
+- TableSource: 外部数据源 
+
+以下代码是读取Kafka中Avro格式的记录：
+
+```
+
+tableEnv
+   // 连接kafka
+   .connect(
+        new Kafka()
+          .version("0.11")
+          .topic("test")
+          .startFromEarliest()
+          .property("zookeeper.connect","localhost:2181")
+          .property("bootstrap.servers","mwt:9092")
+   )
+   // 解析数据源格式
+   .withFormat(
+        new Avro()
+           .avroSchema("avro schema context")
+   )
+   // 定义schema
+   .withSchema(
+        new Schema()
+           .field("rowtime",Types.SQL_TIMESTAMP)
+           .rowtime(new Rowtime()
+                    .timestampsFromField("ts")
+                    .watermarksPeriodicBounded(60000))
+           .field("user",Types.LONG)
+           .field("message",Types.STRING)
+   )
+   // 输出表的更新方式
+   .inAppendMode()
+   // 注册Source与Sink
+   .registerTableSource("myUserTable")
+   
+   
+```
+
+- DataStream 或 DataSet
+
+（2）输出表由TableSink注册
 
 #### 5.10 连接器
 
