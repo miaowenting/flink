@@ -2719,9 +2719,9 @@ group聚合，即非window聚合，有一条数据就会输出，计算的结果
 
 ![avatar](image/Flink_SQL_Client示例客户端_Window_Aggregate_Dashboard.png)
 
-Window_Aggreate与Group_Aggregate区别：
+Window_Aggregate与Group_Aggregate区别：
 
-![avatar](image/Window_Aggreate与Group_Aggregate区别.png)
+![avatar](image/Window_Aggregate与Group_Aggregate区别.png)
 
 
 #### 5.9.5.4 将Append流写入Kafka
