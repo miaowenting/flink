@@ -2707,7 +2707,7 @@ GROUP BY psgCnt;
 
 ![avatar](image/Flink_SQL_Client示例客户端_Group_Aggregate_Dashboard.png)
 
-
+group聚合，即非window聚合，有一条数据就会输出，计算的结果是可更新的结果，所以后面一般接可更新的系统，数据库、HBase等。
 
 #### 5.9.5.3 Window Aggregate
 
@@ -2718,6 +2718,10 @@ GROUP BY psgCnt;
 可以在http://localhost:8081查看作业的运行情况：
 
 ![avatar](image/Flink_SQL_Client示例客户端_Window_Aggregate_Dashboard.png)
+
+Window_Aggreate与Group_Aggregate区别：
+
+![avatar](image/Window_Aggreate与Group_Aggregate区别.png)
 
 
 #### 5.9.5.4 将Append流写入Kafka
