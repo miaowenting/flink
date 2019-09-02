@@ -2194,6 +2194,7 @@ DataStream Plan封装了如何将节点翻译成对应 DataStream/DataSet 程序
 DataStream/DataSet 程序。
 
  ![avatar](image/flink优化过程.png)
+ 
 
 代码生成是 Table API & SQL 中最核心的一块内容。表达式、条件、内置函数等等是需要CodeGen出具体的Function代码的，这部分跟Spark SQL的结构很相似。CodeGen 出的 Function 
 
@@ -2271,6 +2272,1020 @@ tableEnv
 - DataStream 或 DataSet
 
 （2）输出表由TableSink注册
+
+
+##### 5.9.5 SQL Client
+
+学习Flink SQL的教程：[https://github.com/ververica/sql-training]
+
+下载该工程，修改  build.sh 和 docker-compose.yml 等。
+
+build.sh:
+
+```
+#!/usr/bin/env bash
+
+usage() {
+  cat <<HERE
+Usage:
+  build.sh
+
+HERE
+  exit 1
+}
+
+# 构建fhueske/flink-sql-client-training-1.7.2镜像
+# 这个已经有编译好的镜像上传到Docker Hub上了，可以从Docker Hub中直接下载镜像:
+# https://hub.docker.com/r/fhueske/flink-sql-client-training-1.7.2/tags/latest
+
+USER_NAME="fhueske"
+IMAGE_NAME="flink-sql-client-training-1.7.2"
+IMAGE_VERSION=`cat VERSION`
+BASE_IMAGE_NAME="flink-sql-client"
+BASE_IMAGE_VERSION="1.7.2"
+
+KAFKA_DATA_PATH="/opt/data/kafka"
+DRIVERS_DATA_FILE="taxi-drivers.txt.tgz"
+FARES_DATA_FILE="fares.txt.tgz"
+RIDES_DATA_FILE="rides.txt.tgz"
+DRIVERS_DATA_URL="https://drive.google.com/uc?export=download&id=1LX-XHPZpwzSf94_CYk0ajEBYbhdeu48R"
+FARES_DATA_URL="https://drive.google.com/uc?export=download&id=1n3IPotCnIcQ3vkTkMQ6aTZB8ALNa2HwT"
+RIDES_DATA_URL="https://drive.google.com/uc?export=download&id=1_p4NbhEzJr2btRJh4h8eVerc87Tb31vv"
+
+# build base image
+docker build --rm=true -t ${USER_NAME}/${BASE_IMAGE_NAME}:${BASE_IMAGE_VERSION} -f ./Dockerfile .
+
+# build UDFs for TaxiRides data
+echo "Build TaxiRide UDFs"
+mvn -f sql-udfs clean install
+
+# create docker file
+echo -e "FROM ${USER_NAME}/${BASE_IMAGE_NAME}:${BASE_IMAGE_VERSION}\n" > Dockerfile.tmp
+
+# copy SQL Client config
+echo -e "COPY training-config.yaml /opt/sql-client/conf/config.yaml\n" >> Dockerfile.tmp
+
+# copy UDFs
+echo -e "COPY sql-udfs/target/sql-udfs-1.0-SNAPSHOT.jar /opt/sql-client/lib/\n" >> Dockerfile.tmp
+
+# download data files, but drive.google.com Connection refused
+# echo -e "RUN wget -O '${KAFKA_DATA_PATH}/${DRIVERS_DATA_FILE}' '${DRIVERS_DATA_URL}'\n" >> Dockerfile.tmp
+# echo -e "RUN wget -O '${KAFKA_DATA_PATH}/${FARES_DATA_FILE}' '${FARES_DATA_URL}'\n" >> Dockerfile.tmp
+# echo -e "RUN wget -O '${KAFKA_DATA_PATH}/${RIDES_DATA_FILE}' '${RIDES_DATA_URL}'\n" >> Dockerfile.tmp
+
+# copy data files
+echo -e "COPY ${DRIVERS_DATA_FILE} ${KAFKA_DATA_PATH}/${DRIVERS_DATA_FILE}\n" >> Dockerfile.tmp
+echo -e "COPY ${FARES_DATA_FILE} ${KAFKA_DATA_PATH}/${FARES_DATA_FILE}\n" >> Dockerfile.tmp
+echo -e "COPY ${RIDES_DATA_FILE} ${KAFKA_DATA_PATH}/${RIDES_DATA_FILE}\n" >> Dockerfile.tmp
+
+# build image
+docker build -t "${USER_NAME}/${IMAGE_NAME}:${IMAGE_VERSION}" -f ./Dockerfile.tmp .
+
+# leave no trace
+rm Dockerfile.tmp
+
+```
+
+docker-compose.yml：
+
+```
+version: '2'
+services:
+  sql-client:
+#    image: fhueske/flink-sql-client-training-1.7.2:latest
+    build: ./build-image
+    depends_on:
+      - kafka
+      - jobmanager
+      - elasticsearch
+    environment:
+      FLINK_JOBMANAGER_HOST: jobmanager
+      ZOOKEEPER_CONNECT: zookeeper
+      KAFKA_BOOTSTRAP: kafka
+      ES_HOST: elasticsearch
+  jobmanager:
+    image: flink:1.7.2-scala_2.12
+    hostname: "jobmanager"
+    expose:
+      - "6123"
+    ports:
+      - "8081:8081"
+    command: jobmanager
+    environment:
+      - JOB_MANAGER_RPC_ADDRESS=jobmanager
+  taskmanager:
+    image: flink:1.7.2-scala_2.12
+    expose:
+      - "6121"
+      - "6122"
+    depends_on:
+      - jobmanager
+    command: taskmanager
+    links:
+      - jobmanager:jobmanager
+    environment:
+      - JOB_MANAGER_RPC_ADDRESS=jobmanager
+  zookeeper:
+    image: wurstmeister/zookeeper
+    ports:
+      - "2181:2181"
+  kafka:
+    image: wurstmeister/kafka:0.11.0.1
+    ports:
+      - "9092"
+    depends_on:
+      - zookeeper
+    environment:
+      HOSTNAME_COMMAND: "route -n | awk '/UG[ \t]/{print $$2}'"
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch-oss:6.3.1
+    environment:
+      - cluster.name=docker-cluster
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - discovery.type=single-node
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+        
+```
+
+启动所有的容器：
+
+```
+cd ~/Work/third/sql-training
+
+docker-compose build 
+
+docker-compose up -d
+
+```
+
+启动Flink SQL CLI客户端：
+
+```
+docker-compose exec sql-client ./sql-client.sh
+
+```
+![avatar](image/Flink_SQL_Client示例客户端.png)
+
+
+Flink SQL暂不支持DDL操作，需要在sql-client-defaults.yaml配置文件中进行表的DDL操作，示例工程中提供的training-config.yaml：
+
+```
+# This file defines the default environment for Flink's SQL Client.
+# Defaults might be overwritten by a session specific environment.
+
+
+#==============================================================================
+# Table Sources
+#==============================================================================
+
+# Define table sources here. See the Table API & SQL documentation for details.
+
+tables:
+  - name: Rides
+    type: source
+    update-mode: append
+    schema:
+    - name: rideId
+      type: LONG
+    - name: taxiId
+      type: LONG
+    - name: isStart
+      type: BOOLEAN
+    - name: lon
+      type: FLOAT
+    - name: lat
+      type: FLOAT
+    - name: rideTime
+      type: TIMESTAMP
+      rowtime:
+        timestamps:
+          type: "from-field"
+          from: "eventTime"
+        watermarks:
+          type: "periodic-bounded"
+          delay: "60000"
+    - name: psgCnt
+      type: INT
+    connector:
+      property-version: 1
+      type: kafka
+      version: 0.11
+      topic: Rides
+      startup-mode: earliest-offset
+      properties:
+      - key: zookeeper.connect
+        value: ${ZOOKEEPER}:2181
+      - key: bootstrap.servers
+        value: ${KAFKA}:9092
+      - key: group.id
+        value: testGroup
+    format:
+      property-version: 1
+      type: json
+      schema: "ROW(rideId LONG, isStart BOOLEAN, eventTime TIMESTAMP, lon FLOAT, lat FLOAT, psgCnt INT, taxiId LONG)"
+  - name: Fares
+    type: source
+    update-mode: append
+    schema:
+    - name: rideId
+      type: LONG
+    - name: payTime
+      type: TIMESTAMP
+      rowtime:
+        timestamps:
+          type: "from-field"
+          from: "eventTime"
+        watermarks:
+          type: "periodic-bounded"
+          delay: "60000"
+    - name: payMethod
+      type: STRING
+    - name: tip
+      type: FLOAT
+    - name: toll
+      type: FLOAT
+    - name: fare
+      type: FLOAT
+    connector:
+      property-version: 1
+      type: kafka
+      version: 0.11
+      topic: Fares
+      startup-mode: earliest-offset
+      properties:
+      - key: zookeeper.connect
+        value: ${ZOOKEEPER}:2181
+      - key: bootstrap.servers
+        value: ${KAFKA}:9092
+      - key: group.id
+        value: testGroup
+    format:
+      property-version: 1
+      type: json
+      schema: "ROW(rideId LONG, eventTime TIMESTAMP, payMethod STRING, tip FLOAT, toll FLOAT, fare FLOAT)"
+  - name: DriverChanges
+    type: source
+    update-mode: append
+    schema:
+    - name: taxiId
+      type: LONG
+    - name: driverId
+      type: LONG
+    - name: usageStartTime
+      type: TIMESTAMP
+      rowtime:
+        timestamps:
+          type: "from-field"
+          from: "eventTime"
+        watermarks:
+          type: "periodic-bounded"
+          delay: "60000"
+    connector:
+      property-version: 1
+      type: kafka
+      version: 0.11
+      topic: DriverChanges
+      startup-mode: earliest-offset
+      properties:
+      - key: zookeeper.connect
+        value: ${ZOOKEEPER}:2181
+      - key: bootstrap.servers
+        value: ${KAFKA}:9092
+      - key: group.id
+        value: testGroup
+    format:
+      property-version: 1
+      type: json
+      schema: "ROW(eventTime TIMESTAMP, taxiId LONG, driverId LONG)"
+  - name: Drivers
+    type: temporal-table
+    history-table: DriverChanges
+    primary-key: taxiId
+    time-attribute: usageStartTime
+
+  - name: Sink_TenMinPsgCnts
+    type: sink
+    update-mode: append
+    schema: 
+    - name: cntStart
+      type: TIMESTAMP
+    - name: cntEnd
+      type: TIMESTAMP
+    - name: cnt
+      type: LONG
+    connector:
+      property-version: 1
+      type: kafka
+      version: 0.11
+      topic: TenMinPsgCnts
+      startup-mode: earliest-offset
+      properties:
+      - key: zookeeper.connect
+        value: zookeeper:2181
+      - key: bootstrap.servers
+        value: kafka:9092
+      - key: group.id
+        value: trainingGroup
+    format:
+      property-version: 1
+      type: json
+      schema: "ROW(cntStart TIMESTAMP, cntEnd TIMESTAMP, cnt LONG)"
+  - name: Sink_AreaCnts
+    type: sink
+    update-mode: upsert
+    schema: 
+    - name: areaId
+      type: INT
+    - name: cnt
+      type: LONG
+    connector:
+      type: elasticsearch
+      version: 6
+      hosts:
+        - hostname: "elasticsearch"
+          port: 9200
+          protocol: "http"
+      index: "area-cnts"
+      document-type: "areacnt"
+      key-delimiter: "$"
+    format:
+      property-version: 1
+      type: json
+      schema: "ROW(areaId INT, cnt LONG)"
+
+functions:
+- name: timeDiff
+  from: class
+  class: com.dataartisans.udfs.TimeDiff
+- name: isInNYC
+  from: class
+  class: com.dataartisans.udfs.IsInNYC
+- name: toAreaId
+  from: class
+  class: com.dataartisans.udfs.ToAreaId
+- name: toCoords
+  from: class
+  class: com.dataartisans.udfs.ToCoords
+
+#==============================================================================
+# Execution properties
+#==============================================================================
+
+# Execution properties allow for changing the behavior of a table program.
+
+execution:
+  type: streaming              # 'batch' or 'streaming' execution
+  result-mode: table           # 'changelog' or 'table' presentation of results
+  parallelism: 1               # parallelism of the program
+  max-parallelism: 128         # maximum parallelism
+  min-idle-state-retention: 0  # minimum idle state retention in ms
+  max-idle-state-retention: 0  # maximum idle state retention in ms
+
+#==============================================================================
+# Deployment properties
+#==============================================================================
+
+# Deployment properties allow for describing the cluster to which table
+# programs are submitted to.
+
+deployment:
+  type: standalone             # only the 'standalone' deployment is supported
+  response-timeout: 5000       # general cluster communication timeout in ms
+  gateway-address: ""          # (optional) address from cluster to gateway
+  gateway-port: 0              # (optional) port from cluster to gateway
+
+```
+
+
+停止所有的容器：
+
+```
+docker-compose down
+
+```
+
+###### 5.9.5.1 过滤
+
+查询发生在纽约的行车记录：
+
+```
+SELECT * FROM Rides WHERE isInNYC(lon, lat);
+
+```
+
+Docker环境中已经预定义了一些内置函数，如isInNYC(lon,lat)可以确定一个经纬度是否在纽约，toAreaId(lon,lat)可以将经纬度转换成区块。
+
+SQL CLI提交一个SQL任务到Docker集群中，从数据源不断拉取数据，并通过isInNYC过滤出所需数据。SQL CLI也会进入可视化模式：
+
+![avatar](image/Flink_SQL_Client示例客户端_过滤.png)
+
+可以在http://localhost:8081查看作业的运行情况：
+
+![avatar](image/Flink_SQL_Client示例客户端_过滤_Dashboard.png)
+
+
+###### 5.9.5.2 Group Aggregate
+
+统计搭载每种乘客数量的行车事件数，也就是搭载1个乘客的行车事件数、搭载2个乘客的行车事件数 ...
+
+```
+SELECT psgCnt, COUNT(*) AS cnt 
+FROM Rides 
+WHERE isInNYC(lon, lat)
+GROUP BY psgCnt;
+
+```
+
+按照乘客数psgCnt做分组，使用 COUNT(*) 计算出每个分组的事件数，注意在分组前需要先过滤出isInNYC的数据。SQL CLI也会进入可视化模式：
+
+![avatar](image/Flink_SQL_Client示例客户端_Group_Aggregate.png)
+
+可以在http://localhost:8081查看作业的运行情况：
+
+![avatar](image/Flink_SQL_Client示例客户端_Group_Aggregate_Dashboard.png)
+
+
+
+###### 5.9.5.3 Window Aggregate
+
+为了持续监测纽约的交通流量，统计每个区每5分钟进入的车辆数，且只关心至少有5辆车子进入的区块。
+
+![avatar](image/Flink_SQL_Client示例客户端_Window_Aggregate.png)
+
+可以在http://localhost:8081查看作业的运行情况：
+
+![avatar](image/Flink_SQL_Client示例客户端_Window_Aggregate_Dashboard.png)
+
+
+###### 5.9.5.4 将Append流写入Kafka
+
+将"每10分钟的搭乘的乘客数"写入kafka：
+
+```
+INSERT INTO Sink_TenMinPsgCnts 
+SELECT 
+  TUMBLE_START(rideTime, INTERVAL '10' MINUTE) AS cntStart,  
+  TUMBLE_END(rideTime, INTERVAL '10' MINUTE) AS cntEnd,
+  CAST(SUM(psgCnt) AS BIGINT) AS cnt 
+FROM Rides 
+GROUP BY TUMBLE(rideTime, INTERVAL '10' MINUTE);
+
+```
+
+```
+docker-compose exec sql-client /opt/kafka-client/bin/kafka-topics.sh --zookeeper zookeeper:2181 --list
+
+```
+
+```
+docker-compose exec sql-client /opt/kafka-client/bin/kafka-console-consumer.sh --bootstrap-server kafka:9092 --topic TenMinPsgCnts --from-beginning
+
+```
+
+Sink_TenMinPsgCnts表的update-mode为append。
+
+![avatar](image/Flink_SQL_Client示例客户端_kafka_append_sink.png)
+
+
+
+###### 5.9.5.5 将Update流写入ElasticSearch
+
+将"每个区域处于启动状态的行车数" 更新写入到ES中。
+
+```
+INSERT INTO Sink_AreaCnts 
+SELECT toAreaId(lon, lat) AS areaId, COUNT(*) AS cnt 
+FROM Rides 
+WHERE isStart
+GROUP BY toAreaId(lon, lat);
+
+```
+
+Sink_AreaCnts表的update-mode为upsert。
+
+查看area-cnts索引的统计信息： http://localhost:9200/area-cnts/_stats
+
+```
+{
+    "_shards":{
+        "total":10,
+        "successful":5,
+        "failed":0
+    },
+    "_all":{
+        "primaries":{
+            "docs":{
+                "count":6596,
+                "deleted":5706
+            },
+            "store":{
+                "size_in_bytes":529985
+            },
+            "indexing":{
+                "index_total":162000,
+                "index_time_in_millis":21691,
+                "index_current":0,
+                "index_failed":0,
+                "delete_total":0,
+                "delete_time_in_millis":0,
+                "delete_current":0,
+                "noop_update_total":0,
+                "is_throttled":false,
+                "throttle_time_in_millis":0
+            },
+            "get":{
+                "total":162000,
+                "time_in_millis":17185,
+                "exists_total":155404,
+                "exists_time_in_millis":16602,
+                "missing_total":6596,
+                "missing_time_in_millis":583,
+                "current":0
+            },
+            "search":{
+                "open_contexts":0,
+                "query_total":0,
+                "query_time_in_millis":0,
+                "query_current":0,
+                "fetch_total":0,
+                "fetch_time_in_millis":0,
+                "fetch_current":0,
+                "scroll_total":0,
+                "scroll_time_in_millis":0,
+                "scroll_current":0,
+                "suggest_total":0,
+                "suggest_time_in_millis":0,
+                "suggest_current":0
+            },
+            "merges":{
+                "current":0,
+                "current_docs":0,
+                "current_size_in_bytes":0,
+                "total":10,
+                "total_time_in_millis":1021,
+                "total_docs":159998,
+                "total_size_in_bytes":5817063,
+                "total_stopped_time_in_millis":0,
+                "total_throttled_time_in_millis":0,
+                "total_auto_throttle_in_bytes":104857600
+            },
+            "refresh":{
+                "total":121,
+                "total_time_in_millis":9485,
+                "listeners":0
+            },
+            "flush":{
+                "total":0,
+                "periodic":0,
+                "total_time_in_millis":0
+            },
+            "warmer":{
+                "current":0,
+                "total":111,
+                "total_time_in_millis":43
+            },
+            "query_cache":{
+                "memory_size_in_bytes":0,
+                "total_count":0,
+                "hit_count":0,
+                "miss_count":0,
+                "cache_size":0,
+                "cache_count":0,
+                "evictions":0
+            },
+            "fielddata":{
+                "memory_size_in_bytes":0,
+                "evictions":0
+            },
+            "completion":{
+                "size_in_bytes":0
+            },
+            "segments":{
+                "count":8,
+                "memory_in_bytes":19997,
+                "terms_memory_in_bytes":3771,
+                "stored_fields_memory_in_bytes":2544,
+                "term_vectors_memory_in_bytes":0,
+                "norms_memory_in_bytes":0,
+                "points_memory_in_bytes":338,
+                "doc_values_memory_in_bytes":13344,
+                "index_writer_memory_in_bytes":0,
+                "version_map_memory_in_bytes":0,
+                "fixed_bit_set_memory_in_bytes":0,
+                "max_unsafe_auto_id_timestamp":-1,
+                "file_sizes":{
+
+                }
+            },
+            "translog":{
+                "operations":162000,
+                "size_in_bytes":13791977,
+                "uncommitted_operations":162000,
+                "uncommitted_size_in_bytes":13791977,
+                "earliest_last_modified_age":0
+            },
+            "request_cache":{
+                "memory_size_in_bytes":0,
+                "evictions":0,
+                "hit_count":0,
+                "miss_count":0
+            },
+            "recovery":{
+                "current_as_source":0,
+                "current_as_target":0,
+                "throttle_time_in_millis":0
+            }
+        },
+        "total":{
+            "docs":{
+                "count":6596,
+                "deleted":5706
+            },
+            "store":{
+                "size_in_bytes":529985
+            },
+            "indexing":{
+                "index_total":162000,
+                "index_time_in_millis":21691,
+                "index_current":0,
+                "index_failed":0,
+                "delete_total":0,
+                "delete_time_in_millis":0,
+                "delete_current":0,
+                "noop_update_total":0,
+                "is_throttled":false,
+                "throttle_time_in_millis":0
+            },
+            "get":{
+                "total":162000,
+                "time_in_millis":17185,
+                "exists_total":155404,
+                "exists_time_in_millis":16602,
+                "missing_total":6596,
+                "missing_time_in_millis":583,
+                "current":0
+            },
+            "search":{
+                "open_contexts":0,
+                "query_total":0,
+                "query_time_in_millis":0,
+                "query_current":0,
+                "fetch_total":0,
+                "fetch_time_in_millis":0,
+                "fetch_current":0,
+                "scroll_total":0,
+                "scroll_time_in_millis":0,
+                "scroll_current":0,
+                "suggest_total":0,
+                "suggest_time_in_millis":0,
+                "suggest_current":0
+            },
+            "merges":{
+                "current":0,
+                "current_docs":0,
+                "current_size_in_bytes":0,
+                "total":10,
+                "total_time_in_millis":1021,
+                "total_docs":159998,
+                "total_size_in_bytes":5817063,
+                "total_stopped_time_in_millis":0,
+                "total_throttled_time_in_millis":0,
+                "total_auto_throttle_in_bytes":104857600
+            },
+            "refresh":{
+                "total":121,
+                "total_time_in_millis":9485,
+                "listeners":0
+            },
+            "flush":{
+                "total":0,
+                "periodic":0,
+                "total_time_in_millis":0
+            },
+            "warmer":{
+                "current":0,
+                "total":111,
+                "total_time_in_millis":43
+            },
+            "query_cache":{
+                "memory_size_in_bytes":0,
+                "total_count":0,
+                "hit_count":0,
+                "miss_count":0,
+                "cache_size":0,
+                "cache_count":0,
+                "evictions":0
+            },
+            "fielddata":{
+                "memory_size_in_bytes":0,
+                "evictions":0
+            },
+            "completion":{
+                "size_in_bytes":0
+            },
+            "segments":{
+                "count":8,
+                "memory_in_bytes":19997,
+                "terms_memory_in_bytes":3771,
+                "stored_fields_memory_in_bytes":2544,
+                "term_vectors_memory_in_bytes":0,
+                "norms_memory_in_bytes":0,
+                "points_memory_in_bytes":338,
+                "doc_values_memory_in_bytes":13344,
+                "index_writer_memory_in_bytes":0,
+                "version_map_memory_in_bytes":0,
+                "fixed_bit_set_memory_in_bytes":0,
+                "max_unsafe_auto_id_timestamp":-1,
+                "file_sizes":{
+
+                }
+            },
+            "translog":{
+                "operations":162000,
+                "size_in_bytes":13791977,
+                "uncommitted_operations":162000,
+                "uncommitted_size_in_bytes":13791977,
+                "earliest_last_modified_age":0
+            },
+            "request_cache":{
+                "memory_size_in_bytes":0,
+                "evictions":0,
+                "hit_count":0,
+                "miss_count":0
+            },
+            "recovery":{
+                "current_as_source":0,
+                "current_as_target":0,
+                "throttle_time_in_millis":0
+            }
+        }
+    },
+    "indices":{
+        "area-cnts":{
+            "primaries":{
+                "docs":{
+                    "count":6596,
+                    "deleted":5706
+                },
+                "store":{
+                    "size_in_bytes":529985
+                },
+                "indexing":{
+                    "index_total":162000,
+                    "index_time_in_millis":21691,
+                    "index_current":0,
+                    "index_failed":0,
+                    "delete_total":0,
+                    "delete_time_in_millis":0,
+                    "delete_current":0,
+                    "noop_update_total":0,
+                    "is_throttled":false,
+                    "throttle_time_in_millis":0
+                },
+                "get":{
+                    "total":162000,
+                    "time_in_millis":17185,
+                    "exists_total":155404,
+                    "exists_time_in_millis":16602,
+                    "missing_total":6596,
+                    "missing_time_in_millis":583,
+                    "current":0
+                },
+                "search":{
+                    "open_contexts":0,
+                    "query_total":0,
+                    "query_time_in_millis":0,
+                    "query_current":0,
+                    "fetch_total":0,
+                    "fetch_time_in_millis":0,
+                    "fetch_current":0,
+                    "scroll_total":0,
+                    "scroll_time_in_millis":0,
+                    "scroll_current":0,
+                    "suggest_total":0,
+                    "suggest_time_in_millis":0,
+                    "suggest_current":0
+                },
+                "merges":{
+                    "current":0,
+                    "current_docs":0,
+                    "current_size_in_bytes":0,
+                    "total":10,
+                    "total_time_in_millis":1021,
+                    "total_docs":159998,
+                    "total_size_in_bytes":5817063,
+                    "total_stopped_time_in_millis":0,
+                    "total_throttled_time_in_millis":0,
+                    "total_auto_throttle_in_bytes":104857600
+                },
+                "refresh":{
+                    "total":121,
+                    "total_time_in_millis":9485,
+                    "listeners":0
+                },
+                "flush":{
+                    "total":0,
+                    "periodic":0,
+                    "total_time_in_millis":0
+                },
+                "warmer":{
+                    "current":0,
+                    "total":111,
+                    "total_time_in_millis":43
+                },
+                "query_cache":{
+                    "memory_size_in_bytes":0,
+                    "total_count":0,
+                    "hit_count":0,
+                    "miss_count":0,
+                    "cache_size":0,
+                    "cache_count":0,
+                    "evictions":0
+                },
+                "fielddata":{
+                    "memory_size_in_bytes":0,
+                    "evictions":0
+                },
+                "completion":{
+                    "size_in_bytes":0
+                },
+                "segments":{
+                    "count":8,
+                    "memory_in_bytes":19997,
+                    "terms_memory_in_bytes":3771,
+                    "stored_fields_memory_in_bytes":2544,
+                    "term_vectors_memory_in_bytes":0,
+                    "norms_memory_in_bytes":0,
+                    "points_memory_in_bytes":338,
+                    "doc_values_memory_in_bytes":13344,
+                    "index_writer_memory_in_bytes":0,
+                    "version_map_memory_in_bytes":0,
+                    "fixed_bit_set_memory_in_bytes":0,
+                    "max_unsafe_auto_id_timestamp":-1,
+                    "file_sizes":{
+
+                    }
+                },
+                "translog":{
+                    "operations":162000,
+                    "size_in_bytes":13791977,
+                    "uncommitted_operations":162000,
+                    "uncommitted_size_in_bytes":13791977,
+                    "earliest_last_modified_age":0
+                },
+                "request_cache":{
+                    "memory_size_in_bytes":0,
+                    "evictions":0,
+                    "hit_count":0,
+                    "miss_count":0
+                },
+                "recovery":{
+                    "current_as_source":0,
+                    "current_as_target":0,
+                    "throttle_time_in_millis":0
+                }
+            },
+            "total":{
+                "docs":{
+                    "count":6596,
+                    "deleted":5706
+                },
+                "store":{
+                    "size_in_bytes":529985
+                },
+                "indexing":{
+                    "index_total":162000,
+                    "index_time_in_millis":21691,
+                    "index_current":0,
+                    "index_failed":0,
+                    "delete_total":0,
+                    "delete_time_in_millis":0,
+                    "delete_current":0,
+                    "noop_update_total":0,
+                    "is_throttled":false,
+                    "throttle_time_in_millis":0
+                },
+                "get":{
+                    "total":162000,
+                    "time_in_millis":17185,
+                    "exists_total":155404,
+                    "exists_time_in_millis":16602,
+                    "missing_total":6596,
+                    "missing_time_in_millis":583,
+                    "current":0
+                },
+                "search":{
+                    "open_contexts":0,
+                    "query_total":0,
+                    "query_time_in_millis":0,
+                    "query_current":0,
+                    "fetch_total":0,
+                    "fetch_time_in_millis":0,
+                    "fetch_current":0,
+                    "scroll_total":0,
+                    "scroll_time_in_millis":0,
+                    "scroll_current":0,
+                    "suggest_total":0,
+                    "suggest_time_in_millis":0,
+                    "suggest_current":0
+                },
+                "merges":{
+                    "current":0,
+                    "current_docs":0,
+                    "current_size_in_bytes":0,
+                    "total":10,
+                    "total_time_in_millis":1021,
+                    "total_docs":159998,
+                    "total_size_in_bytes":5817063,
+                    "total_stopped_time_in_millis":0,
+                    "total_throttled_time_in_millis":0,
+                    "total_auto_throttle_in_bytes":104857600
+                },
+                "refresh":{
+                    "total":121,
+                    "total_time_in_millis":9485,
+                    "listeners":0
+                },
+                "flush":{
+                    "total":0,
+                    "periodic":0,
+                    "total_time_in_millis":0
+                },
+                "warmer":{
+                    "current":0,
+                    "total":111,
+                    "total_time_in_millis":43
+                },
+                "query_cache":{
+                    "memory_size_in_bytes":0,
+                    "total_count":0,
+                    "hit_count":0,
+                    "miss_count":0,
+                    "cache_size":0,
+                    "cache_count":0,
+                    "evictions":0
+                },
+                "fielddata":{
+                    "memory_size_in_bytes":0,
+                    "evictions":0
+                },
+                "completion":{
+                    "size_in_bytes":0
+                },
+                "segments":{
+                    "count":8,
+                    "memory_in_bytes":19997,
+                    "terms_memory_in_bytes":3771,
+                    "stored_fields_memory_in_bytes":2544,
+                    "term_vectors_memory_in_bytes":0,
+                    "norms_memory_in_bytes":0,
+                    "points_memory_in_bytes":338,
+                    "doc_values_memory_in_bytes":13344,
+                    "index_writer_memory_in_bytes":0,
+                    "version_map_memory_in_bytes":0,
+                    "fixed_bit_set_memory_in_bytes":0,
+                    "max_unsafe_auto_id_timestamp":-1,
+                    "file_sizes":{
+
+                    }
+                },
+                "translog":{
+                    "operations":162000,
+                    "size_in_bytes":13791977,
+                    "uncommitted_operations":162000,
+                    "uncommitted_size_in_bytes":13791977,
+                    "earliest_last_modified_age":0
+                },
+                "request_cache":{
+                    "memory_size_in_bytes":0,
+                    "evictions":0,
+                    "hit_count":0,
+                    "miss_count":0
+                },
+                "recovery":{
+                    "current_as_source":0,
+                    "current_as_target":0,
+                    "throttle_time_in_millis":0
+                }
+            }
+        }
+    }
+}
+```
+
 
 #### 5.10 连接器
 
