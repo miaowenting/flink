@@ -10,9 +10,9 @@
 Jark's Blog: [http://wuchong.me]
 
 
-### 1. 概述
+# 1. 概述
 
-#### 1.1 功能特性
+## 1.1 功能特性
 
 Flink是一个用于流处理和批处理的开源分布式平台，它的核心是流处理引擎（streaming dataflow engine）。
 
@@ -28,9 +28,9 @@ Flink自上而下的全局组成结构图:
 
 ![avatar](image/Flink自上而下的全局组成结构图.png)
 
-#### 1.2 编程模型
+## 1.2 编程模型
 
-##### 1.2.1 API
+### 1.2.1 API
 
 Flink提供了不同层次的API用于streaming/batch应用的开发，如下图所示：
 
@@ -41,7 +41,7 @@ Flink提供了不同层次的API用于streaming/batch应用的开发，如下图
 Table API是以表为中心的声明式DSL（领域特定语言），当这些Table表示的是stream时，Table是动态变化的。Table API遵循扩展的关系模型，提供了包括select、project、join、group-by、aggregate等操作。
 Flink提供的最高层级的API是SQL，它在语义和表达能力上与Table API是类似的。
 
-###### 1.2.1.1 DataStream API
+#### 1.2.1.1 DataStream API
 
 在data stream上实现转换，如filter、update state、define windows、aggregate。DataStream中的transformation可以将一个或多个DataStream转换为一个DataStream。API参考https://ci.apache.org/projects/flink/flink-docs-release-1.4/dev/datastream_api.html。
 
@@ -84,7 +84,7 @@ data sink：可以将经过各种算子处理后的数据流写到文件、csv�
 ![avatar](image/DataStream物理分组.png)
 
 
-###### 1.2.1.2 DataSet API
+#### 1.2.1.2 DataSet API
 
 DataSet API在data set上实现转换，如filter、map、join、group。
 
@@ -96,7 +96,7 @@ dinstinct：返回数据集中的所有不同元素；
 API参考https://ci.apache.org/projects/flink/flink-docs-release-1.4/dev/batch/index.html。
 
 
-###### 1.2.1.3 Table API & SQL
+#### 1.2.1.3 Table API & SQL
 
 Table API是一种类SQL表达式语言，可以用于关系流（relational stream）和batch，可以嵌入到DataStream API和DataSet API中。
 
@@ -106,9 +106,9 @@ Flink的Table API和SQL尚未完全实现，并非所有的功能都能支持，
 
 API参考https://ci.apache.org/projects/flink/flink-docs-release-1.4/dev/table/index.html。
 
-###### 1.2.1.4 Flink提供的库
+#### 1.2.1.4 Flink提供的库
 
-##### 1.2.2 Flink程序与Streaming dataflow
+### 1.2.2 Flink程序与Streaming dataflow
 
 Flink程序的基本元素包括：
 
@@ -128,7 +128,7 @@ Flink程序/Streaming dataflow的结构如下图所示：
 指定将计算结果写到哪里；
 触发程序执行
 
-##### 1.2.3 并行的dataflow
+### 1.2.3 并行的dataflow
 
 Flink程序在实际运行中是并行的、分布式的：
 
@@ -145,7 +145,7 @@ Flink程序在实际运行中是并行的、分布式的：
 one-to-one：像上图的Source[1] -> map[1]。
 redistributing：像上图的map[1] -> keyBy()/window()/apply() [1]和[2]。
 
-##### 1.2.4 窗口window
+### 1.2.4 窗口window
 
 在streams上对event进行聚合（如count、sum）与批处理不同，需要通过window限定聚合的event范围，如统计最近5分钟的event数量。stream上的window可以是时间驱动（如每30秒），也可以是数据驱动（如每100个元素）。
 
@@ -160,13 +160,13 @@ session window：即通过会话来区分window。
 ![avatar](image/一个stream上可以同时有多个window.png)
 
 
-##### 1.2.5 有状态的Operation
+### 1.2.5 有状态的Operation
 
 dataflow中很多operator在一个时间点通常只关注一个event，是无状态的；而有些operator会需要记忆跨多个event的信息，这些operator就是有状态的。
 
 有状态的operator的状态以key/value的形式存储（在内存、HDFS或RocksDB中），并与stream一起被分割分布式存储。
 
-##### 1.2.6 Checkpoint与容错
+### 1.2.6 Checkpoint与容错
 
 Flink通过流重放（stream replay）、检查点（checkpointing）来实现容错。
 
@@ -178,16 +178,16 @@ checkpoint存储的信息包括某个特定event在stream中的偏移量、dataf
 
 需要说明的是，Flink将批处理看做流处理的一种特殊情形（即stream是有界的情形）。Flink对批处理并不用checkpoint，因为考虑到batch data是有限的，当处理数据失败了把所有数据重放一遍即可。因而批处理中处理event会更快（因为避免了checkpoint）。
 
-##### 1.2.7 WaterMark
+### 1.2.7 WaterMark
 
 WaterMark（包含一个时间戳）可以像正常的element一样插入到stream中，用于告诉operator不会有比它自己更晚的element到来。WaterMark在source中发射，并通过operator在stream中向下传播。
 
 watermark只是启发式的，如果有比watermark的event time早的element在watermark之后到，operator仍然需要支持处理（抛弃或更新结果）。当source发了一个最终的watermark（时间戳为Long.MAX_VALUE），收到它的operator就知道不会有更多的输入了。
 
 
-#### 1.3 分布式runtime
+## 1.3 分布式runtime
 
-##### 1.3.1 任务链与Operator链
+### 1.3.1 任务链与Operator链
 
 为了能够分布式执行，Flink将operator subtask链式拼接为一个task，每个task由一个线程来执行。这是一个很有用的优化，它可以降低线程之间的切换开销，增加Flink的吞吐量，并降低处理延时。
 
@@ -198,7 +198,7 @@ keyBy()/window()/apply()也被拆分为两个operator subtask并各占一个线�
 
 ![avatar](image/任务链与Operator链.png)
 
-##### 1.3.2 JobManager/TaskManager/Client
+### 1.3.2 JobManager/TaskManager/Client
 
 要了解一个系统，一般是从架构开始。我们关心的问题是：系统部署成功后各个节点都启动了哪些服务，各个服务之间又是怎么交互和协调的。
 
@@ -227,7 +227,7 @@ Flink运行时包含两种类型的进程：
 运行时的组成部分，被用于向JobManager发送Job，此后可以断开连接或者等待JobManager的任务执行进度报告）。
 
 
-##### 1.3.3 Task槽(Slot)与资源
+### 1.3.3 Task槽(Slot)与资源
 
 每个TaskManager是一个JVM进程，会在不同的线程中执行一个或多个operator subtask。为了控制单个TaskManager所能接收的任务数量，每个TaskManager会包含一组Task槽（至少会有一个）。
 
@@ -243,12 +243,12 @@ TaskManager JVM中operator subtask、thread、task slot之间的关系：
 ![avatar](image/operatorSubatask_thread_taskSlot之间的关系.png)
 
 
-##### 1.3.4 状态存储
+### 1.3.4 状态存储
 
 streaming dataflow中的一些operator（如windows）是有状态的。这些状态（被索引的键值对）作为checkpoint的一部分，可以存储在内存/HDFS/RocksDB中（通过配置控制）。
 
 
-##### 1.3.5 保存点(savepoint)
+### 1.3.5 保存点(savepoint)
 
 使用DataStream API编写的Flink程序可以从任意指定的savepoint开始执行。Savepoint允许你“冻结”stream的处理、更新你的flink程序甚至你的flink集群（如升级版本），然后可以从savepoints恢复执行。
 
@@ -256,9 +256,9 @@ savepoint是手工触发的checkpoints，也依赖checkpointing机制，可以�
 
 
 
-### 2. 配置
+# 2. 配置
 
-#### 2.1 配置文件
+## 2.1 配置文件
 
 flink-conf.yaml:
 
@@ -401,7 +401,7 @@ flink-conf.yaml:
 
 
 
-#### 2.2 任务运行参数
+## 2.2 任务运行参数
 
 ```
  yarncontainer： 1
@@ -410,9 +410,9 @@ flink-conf.yaml:
  yarnslots: 1
 ```
 
-### 3. 安装部署
+# 3. 安装部署
 
-#### 3.1 Flink on YARN
+## 3.1 Flink on YARN
 
 ![avatar](image/Flink_on_yarn模式下yarn_client提交流程图.png)
 
@@ -426,7 +426,7 @@ flink-conf.yaml:
 
 
 
-#### 3.2 启动脚本
+## 3.2 启动脚本
 
 Flink提供了两个启动脚本：bin/start-local.sh用于启动单机模式的Flink；bin/start-cluster.sh用于启动集群模式的Flink。
 
@@ -447,7 +447,7 @@ taskmanager	org.apache.flink.runtime.taskmanager.TaskManager
 historyserver	org.apache.flink.runtime.webmonitor.history.HistoryServer
 
 
-#### 3.3 CLI脚本
+## 3.3 CLI脚本
 
 Flink提供的CLI脚本是bin/flink，可以通过该脚本提交Job、创建Savepoint等。
 
@@ -457,7 +457,7 @@ Flink提供的CLI脚本是bin/flink，可以通过该脚本提交Job、创建Sav
 通过Client入口org.apache.flink.client.CliFrontend连接到JobManager并发送消息。
 
 
-#### 3.4 访问安全
+## 3.4 访问安全
 
 ![avatar](image/Flink的访问安全.png)
 
@@ -483,9 +483,9 @@ taskmanager.data.ssl.enabled: false
 ```
 
 
-### 4. 监控
+# 4. 监控
 
-#### 4.1 Metric监控
+## 4.1 Metric监控
 
 Flink包含了一个metric系统，可采集用户范围/系统范围的监控指标并输出给外部监控系统，如Ganglia/Graphite/StatsD等。采集的监控指标包括CPU、内存、线程、垃圾收集、类加载器、网络、集群、高可用、checkpointing、IO、source连接器等。
 
@@ -499,7 +499,7 @@ Flink包含了一个metric系统，可采集用户范围/系统范围的监控�
 监控分为两部分，即 Metrics 和 Reporter ，Metrics 用于度量指标，Reporter用于向监控展示工具实时上传指标。
 
 
-##### 4.1.1 指标类型
+### 4.1.1 指标类型
 
 下面以 RichMapFunction 演示各种指标类型：
 
@@ -559,7 +559,7 @@ class MyMapper extends RichMapFunction[String,String] {
 
 ```
 
-##### 4.1.2 指标作用域
+### 4.1.2 指标作用域
 
 （1）用户自定义作用域
 
@@ -569,7 +569,7 @@ class MyMapper extends RichMapFunction[String,String] {
 
     <host>.<job_name>.<task_name>.<operator_name>.<subtask_index>
 
-#### 4.2 监控配置Reporter
+## 4.2 监控配置Reporter
 
 Flink提供以下Reporter：JMX、Graphite、Prometheus、StatsD、Datadog、Slf4j
 
@@ -601,27 +601,27 @@ metrics.repoter.slf4j.interval: 60 SECONDS
 
 ```
 
-#### 4.3 Checkpoint监控
+## 4.3 Checkpoint监控
 
 Flink提供了dashboard用于监控Job的checkpoint。即使Job完成运行，对应的checkpoint统计数据仍然是可以查询的。
 
 详情可以参考https://ci.apache.org/projects/flink/flink-docs-release-1.4/monitoring/checkpoint_monitoring.html。
 
-#### 4.4 Back Pressure监控
+## 4.4 Back Pressure监控
 
 如果你看到一个task的背压（back pressure）告警，这表示这个task产生数据的速度超过了下游operator的消费速度。数据在job flow中是按照从source到sink的方向流动的，而背压是沿着相反的方向传播。
 
 详情可以参考https://ci.apache.org/projects/flink/flink-docs-release-1.4/monitoring/back_pressure.html。
 
-#### 4.5 监控REST API
+## 4.5 监控REST API
 
 Flink基于Netty提供了一组监控API用于查询正在运行/最近完成的Job的状态和统计数据，这些API用于输出监控数据给Flink自身的Dashboard，但是也可以用于开发定制化的监控工具。
 
 详情可以参考https://ci.apache.org/projects/flink/flink-docs-release-1.4/monitoring/rest_api.html。
 
-### 5. 源码剖析
+# 5. 源码剖析
 
-#### 5.1 准备工作
+## 5.1 准备工作
 
 编译源码：
 ```
@@ -650,14 +650,14 @@ env.java.opts: -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=500
 
 ```
 
-#### 5.2 SocketWindowWordCount
+## 5.2 SocketWindowWordCount
 
 
 
 
 
 
-#### 5.3 StreamTransformation
+## 5.3 StreamTransformation
 
 StreamTransformation的10个子类实现:
 
@@ -732,16 +732,8 @@ text.flatMap(new LineSplitter()).shuffle().filter(new HelloFilter()).print();
 
 ![avatar](image/实例讲解中transformation的处理顺序.png)
 
-如上图所示:
 
-1.
-2.
-3.
-4.
-5.
-
-
-#### 5.4 StreamOperator
+## 5.4 StreamOperator
 
 DataStream 上的每一个 Transformation 都对应了一个 StreamOperator，StreamOperator是运行时的具体实现，会决定UDF(User-Defined Funtion)的调用方式。
 下图所示为 StreamOperator 的类图:
@@ -753,7 +745,7 @@ DataStream 上的每一个 Transformation 都对应了一个 StreamOperator，St
 
 
 
-#### 5.5 Graph
+## 5.5 Graph
 
 Flink中的执行图可以分为4层:
 
@@ -830,7 +822,7 @@ Flink中为什么要有这4张图呢？目的是解耦，每张图各司其职�
 首先我们看到，JobGraph 之上除了 StreamGraph 还有 OptimizedPlan。OptimizedPlan 是由 Batch API 转换而来的。StreamGraph 是由 Stream API 转换而来的。为什么 API 不直接转换成 JobGraph？因为，Batch 和 Stream 的图结构和优化方法有很大的区别，比如 Batch 有很多执行前的预分析用来优化图的执行，而这种优化并不普适于 Stream，所以通过 OptimizedPlan 来做 Batch 的优化会更方便和清晰，也不会影响 Stream。JobGraph 的责任就是统一 Batch 和 Stream 的图，用来描述清楚一个拓扑图的结构，并且做了 chaining 的优化，chaining 是普适于 Batch 和 Stream 的，所以在这一层做掉。ExecutionGraph 的责任是方便调度和各个 tasks 状态的监控和跟踪，所以 ExecutionGraph 是并行化的 JobGraph。而“物理执行图”就是最终分布式在各个机器上运行着的tasks了。所以可以看到，这种解耦方式极大地方便了我们在各个层所做的工作，各个层之间是相互隔离的。
 
 
-##### 5.5.1 如何生成StreamGraph
+### 5.5.1 如何生成StreamGraph
 
 SocketWindowWordCount生成StreamGraph的代码流程图:
 
@@ -922,7 +914,7 @@ bin/flink run examples/streaming/SocketWindowWordCount.jar --hostname localhost 
 ![avatar](image/SocketWindowWordCount输出的统计结果.png)
 
 
-##### 5.5.2 如何生成JobGraph
+### 5.5.2 如何生成JobGraph
 
 根据用户用 Stream API 编写的程序，构造出一个代表拓扑结构的StreamGraph，以WordCount为例，转换图如下图所示：
 
@@ -936,19 +928,19 @@ StreamingJobGraphGenerator.createJobGraph()
 
 
 
-##### 5.5.3 如何生成ExecutionGraph
+### 5.5.3 如何生成ExecutionGraph
 
 
 
-##### 5.5.4 如何进行调度(如何生成物理执行图)
+### 5.5.4 如何进行调度(如何生成物理执行图)
 
 
 
-#### 5.6 理解Flink中的计算资源
+## 5.6 理解Flink中的计算资源
 
 计算资源是指用来执行 Task 的资源，是一个逻辑概念。本文会介绍 Flink 计算资源相关的一些核心概念，如：Slot、SlotSharingGroup、CoLocationGroup、Chain等。并会着重讨论 Flink 如何对计算资源进行管理和隔离，如何将计算资源利用率最大化等等。理解 Flink 中的计算资源对于理解 Job 如何在集群中运行的有很大的帮助，也有利于我们更透彻地理解 Flink 原理，更快速地定位问题。
 
-##### 5.6.1 Operator Chains
+### 5.6.1 Operator Chains
 
 为了更高效地分布式执行，Flink会尽可能地将operator的subtask链接（chain）在一起形成task。每个task在一个线程中执行。将operators链接成task是非常有效的优化：它能减少线程之间的切换，减少消息的序列化/反序列化，减少数据在缓冲区的交换，减少了延迟的同时提高整体的吞吐量。
 
@@ -971,7 +963,7 @@ Operator chain的行为可以通过编程API中进行指定。可以通过在Dat
 或者调用disableChaining()来指示该operator不参与chaining（不会与前后的operator chain一起）。在底层，这两个方法都是通过调整operator的 chain 策略（HEAD、NEVER）来实现的。另外，也可以通过调用StreamExecutionEnvironment.disableOperatorChaining()来全局禁用chaining。
 
 
-###### 5.6.1.1 原理与实现
+#### 5.6.1.1 原理与实现
 
 那么 Flink 是如何将多个 operators chain在一起的呢？chain在一起的operators是如何作为一个整体被执行的呢？它们之间的数据流又是如何避免了序列化/反序列化以及网络传输的呢？下图展示了operators chain的内部实现：
 
@@ -990,7 +982,7 @@ ChainingOutput 实现的。
 注：HeadOperator和ChainOperator并不是具体的数据结构，前者指代chain中的第一个operator，后者指代chain中其余的operator，它们实际上都是StreamOperator。
 
 
-##### 5.6.2 Task Slot
+### 5.6.2 Task Slot
 
 TaskManager 是一个 JVM 进程，并会以独立的线程来执行一个task或多个subtask。为了控制一个 TaskManager 能接受多少个 task，Flink 提出了 Task Slot 的概念。
 
@@ -1007,7 +999,7 @@ Flink 中的计算资源通过 Task Slot 来定义。每个 task slot 代表了 
 ![avatar](image/5个Task可能会在TaskManager中的slots中的分布.png)
 
 
-##### 5.6.3 SlotSharingGroup与CoLocationGroup
+### 5.6.3 SlotSharingGroup与CoLocationGroup
 
 默认情况下，Flink允许subtasks共享slots，条件是它们都来自同一个Job的不同task的subtask。结果可能一个slot持有该job的整个pipeline。
 
@@ -1030,7 +1022,7 @@ SlotSharingGroup是Flink中用来实现slot共享的类，它尽可能地让subt
 
 最后，为了防止不合理的共享，用户也能通过API来强制指定operator的共享组，比如：someStream.filter(...).slotSharingGroup("group1");就强制指定了filter的slot共享组为group1。
 
-###### 5.6.3.1 原理与实现
+#### 5.6.3.1 原理与实现
 
 那么多个tasks（operators）是如何共享slot的呢？
 
@@ -1068,13 +1060,13 @@ Flink计算资源中最核心的是Task slot，每个slot能运行一个或多�
 为了资源更充分地利用，Flink又提出了SlotSharingGroup，尽可能地让多个task共享一个slot。
 
 
-#### 5.7 数据流上的类型和操作
+## 5.7 数据流上的类型和操作
 
 介绍几种关键数据流类型，它们之间是如何通过转换关联起来的。
 
 ![avatar](image/Flink的流类型以及之间的转换关系.png)
 
-##### 5.7.1 DataStream
+### 5.7.1 DataStream
 
 DataStream 是 Flink 流处理API中最核心的数据结构。它代表了一个运行在多个分区上的并行流。一个DataStream 可以从StreamExecutionEnvironment 通过 env.addSource(SourceFunction) 获得。
 
@@ -1095,14 +1087,14 @@ val str3: DataStream[AnotherType] = stream.map { ... }
 如上图的执行图所示，DataStream 各个算子会并行运行，算子之间是数据流分区。如 Source 的第一个并行实例（S1）和 flatMap() 的第一个并行实例（m1）之间就是一个数据流分区。而在 flatMap() 和 map() 之间由于加了 rebalance()，它们之间的数据流分区就有3个子分区（m1的数据流向3个map()实例）。这与 Apache Kafka 是很类似的，把流想象成 Kafka Topic，而一个流分区就表示一个 Topic Partition，流的目标并行算子实例就是 Kafka Consumers。
 
 
-##### 5.7.2 KeyedStream
+### 5.7.2 KeyedStream
 
 KeyedStream 用来表示根据指定的key进行分组的数据流。一个KeyedStream 可以通过调用 DataStream.KeyBy()来获得。而在 KeyedStream 上进行任何transformation都将转变回DataStream。
 
 在实现中，KeyedStream 是把key的信息写入到了transformation中。每条记录只能访问所属key的状态，其上的聚合函数可以方便地操作和保存对应key的状态。
 
 
-##### 5.7.3 WindowedStream & AllWindowedStream
+### 5.7.3 WindowedStream & AllWindowedStream
 
 WindowedStream 代表了根据key分组，并且基于 WindowAssigner 切分窗口的数据流。所以 WindowedStream 是基于 KeyedStream 衍生而来的。而在 WindowedStream上进行任何
  
@@ -1131,7 +1123,7 @@ Flink在聚合类窗口有一定的优化，即不会保存窗口中的所有值
 AllWindowedStream 是直接在 DataStream 上进行 windowAll(...) 操作。AllWindowedStream 的实现是基于 WindowedStream 的。 Flink 不推荐使用 AllWindowedStream，因为在普通流上进行窗口操作，就必须要将所有分区的流都汇集到单个的Task中，而这个单个的Task很显然就会成为整个Job的瓶颈。
 
 
-##### 5.7.4 JoinedStreams & CoGroupedStreams
+### 5.7.4 JoinedStreams & CoGroupedStreams
 
 双流Join也是一个非常常见的应用场景，深入源码可以发现，JoinedStreams 和 CoGroupedStreams 的代码实现80%一样，JoinedStreams 在底层又调用 CoGroupedStreams 
 来实现Join功能。那为什么要提供两个功能类似的接口呢？
@@ -1165,7 +1157,7 @@ val result: DataStream[(MyType, AnotherType)] = firstInput.join(secondInput)
 
 
 
-##### 5.7.5 ConnectedStreams
+### 5.7.5 ConnectedStreams
 
 在 DataStream 上有一个 union 的转换 dataStream.union(otherStream1, otherStream2, ...)，用来合并多个流，新的流会包含所有流中的数据。union 有一个限制，就是所有合并的流的类型必须是一致的。ConnectedStreams 提供了和 union 类似的功能，用来连接两个流，但是与 union 转换有以下几个区别：
 
@@ -1194,13 +1186,13 @@ val result: DataStream[ResultType] =
 ![avatar](image/ConnectedStreams示例代码在运行时转换成的执行图.png)
 
 
-#### 5.8 Window机制
+## 5.8 Window机制
 
 Flink任务 Batch 是 
 Streaming 的一个特例，所以Flink底层引擎是一个流式引擎，在上面实现了流处理和批处理。而窗口就是从
 Streaming到Batch的一个桥梁。Flink提供了非常完善的窗口机制。
 
-##### 5.8.1 什么是Window
+### 5.8.1 什么是Window
 
 在流式应用中，数据是连续不断的，因此不可能等到所有数据都到了才开始处理。当然我们可以每来一个消息就处理一次，但是有时候我们需要做一些聚合类的处理，例如：在过去的1分钟内有多少用户点击了我们的网页。
 
@@ -1246,7 +1238,7 @@ stream
     
 ```
 
-###### 5.8.1.1 Time Window
+#### 5.8.1.1 Time Window
 
 Time Window 是根据时间对数据流进行分组的。这里涉及到了流处理中的时间问题，时间问题和消息乱序问题是紧密相连的，是流处理中现存的难题之一。Flink提出的3种时间概念，分别是event time(事件时间：事件发生时的时间)
 
@@ -1289,7 +1281,7 @@ Time Window 是根据时间对数据流进行分组的。这里涉及到了流�
   ```
   
 
-###### 5.8.1.2 Count Window
+#### 5.8.1.2 Count Window
 
 Count Window 是根据元素个数对数据流进行分组的。
 
@@ -1328,7 +1320,7 @@ Count Window 是根据元素个数对数据流进行分组的。
    
   ```
 
-###### 5.8.1.3 Session Window
+#### 5.8.1.3 Session Window
 
 在这种用户交互事件流中，我们首先想到的是将事件聚合到会话窗口中（一段用户持续活跃的周期），由非活跃的间隙分隔开。如上图所示，就是需要计算每个用户在活跃期间总共购买的商品数量，如果用户30秒没有活动则视为会话断开。
 
@@ -1380,7 +1372,7 @@ input
 
 DataStream API 提供了简洁的算子来满足常用的窗口操作，同时提供了通用的窗口机制来允许用户自己定义窗口分配逻辑。    
 
-###### 5.8.1.4 Global Window
+#### 5.8.1.4 Global Window
 
 全局窗口将相同key的所有元素聚在一起，但是这种窗口没有起点也没有终点，因此必须自定义触发器：
 
@@ -1394,9 +1386,9 @@ input
 ```
     
     
-##### 5.8.2 窗口函数
+### 5.8.2 窗口函数
 
-###### 5.8.2.1 reduce函数
+#### 5.8.2.1 reduce函数
 
 将每个窗口内的数据作为输入，输出一个计算结果
 以下代码计算窗口内所有元素第二个属性的和
@@ -1412,7 +1404,7 @@ input
   
 ```
 
-###### 5.8.2.2 聚合函数
+#### 5.8.2.2 聚合函数
 
 聚合函数有三个泛型参数，IN：窗口内数据类型，ACC：累加器类型，存放临时聚合结果，OUT：聚合结果类型。
 
@@ -1447,7 +1439,7 @@ input
 
 ```
 
-###### 5.8.2.3 处理函数
+#### 5.8.2.3 处理函数
 
 处理函数可通过迭代器访问窗口内所有的元素，并可访问窗口上下文，其转换结果是多值的(Collector<OUT>)
 窗口上下文包括开窗机制、处理时间、水印、状态等
@@ -1474,7 +1466,7 @@ class MyProcessWindowFunction extends ProcessWindowFunction[(String,Long),String
 
 ```
 
-###### 5.8.2.4 带窗口函数的聚合函数
+#### 5.8.2.4 带窗口函数的聚合函数
 
 WindowedStream类重载了aggregate方法，其中一种重载方法带有ReduceFunction和ProcessWindowFunction参数：
 
@@ -1526,7 +1518,7 @@ class MyProcessWindowFunction extends ProcessWindowFunction[Double,(String,Doubl
 
 ```
 
-##### 5.8.3 触发器 
+### 5.8.3 触发器 
 
 触发器原型中包括4类触发机制，基于事件驱动。
 
@@ -1582,7 +1574,7 @@ Flink提供的内置触发器：
 - PurgingTrigger：将其他触发器转换成清除触发器，即销毁窗口
 
 
-##### 5.8.4 清除器
+### 5.8.4 清除器
 
 Evictor在触发器触发后，窗口函数执行前或执行后清除窗口内元素：
 
@@ -1596,7 +1588,7 @@ Flink提供的内置清除器：
 - TimeEvictor：根据窗口内元素的时间戳决定清除哪些元素
 
 
-##### 5.8.5 迟到生存期
+### 5.8.5 迟到生存期
 
 Flink默认的迟到生存期为0，即事件时间窗口在水印到来后结束，无需考虑事件迟到的情况。
 
@@ -1612,7 +1604,7 @@ input
   
 ```
 
-##### 5.8.6 剖析Window API
+### 5.8.6 剖析Window API
 
 得益于Flink Window API的松耦合设计，我们可以非常灵活地定义符合特定业务的窗口。Flink中定义一个窗口主要需要以下三个组件。
 
@@ -1638,7 +1630,7 @@ input
 上述三个组件的不同实现的不同组合，可以定义出非常复杂的窗口。Flink中内置的窗口也是基于这三个组件构成的，当然内置窗口有时候无法解决用户特殊的需求，所以Flink也暴露了这些窗口机制的内部接口供用户实现自定义的窗口。
 
 
-##### 5.8.7 Window的实现
+### 5.8.7 Window的实现
 
 ![avatar](image/Flink的窗口机制以及各组件之间是如何相互工作的.png)
 
@@ -1666,11 +1658,11 @@ Flink对于一些聚合类的窗口计算（如sum、min）做了优化，因为
 这样可以大大降低内存的消耗并提升性能。但是如果用户定义了Evictor，则不会启用对聚合窗口的优化，因为Evictor需要遍历窗口中的所有元素，必须要将窗口中所有元素都存下来。
 
 
-##### 5.8.8 源码分析
+### 5.8.8 源码分析
 
 上述的三个组件构成了 Flink 的窗口机制。为了更清楚地描述窗口机制，以及解开一些疑惑（比如 purge 和 Evictor 的区别和用途），我们将一步步地解释 Flink 内置的一些窗口（Time Window，Count Window，Session Window）是如何实现的。
 
-###### 5.8.8.1 Count Window实现
+#### 5.8.8.1 Count Window实现
 
 Count Window是使用三组件的典范，我们可以在KeyedStream上创建 Count Window，源码如下所示：
 
@@ -1705,7 +1697,7 @@ public WindowedStream<T, KEY, GlobalWindow> countWindow(long size, long slide) {
 
 
 
-###### 5.8.8.2 Time Window实现
+#### 5.8.8.2 Time Window实现
 
 同样地，我们可以在KeyedStream上申请Time Window，其源码如下所示：
 
@@ -1792,7 +1784,7 @@ public class ProcessingTimeTrigger extends Trigger<Object, TimeWindow> {
 
 
 
-###### 5.8.8.3 Session Window实现
+#### 5.8.8.3 Session Window实现
 
 当我们需要分析用户的一段交互的行为事件时，通常的想法是将用户的事件按照 session 
 来分组。session是指一段持续活跃的期间，由活跃间隙分隔开。通俗一点说，消息之间的间隔小于超时阈值（sessionGap）的，则被分配到同一个窗口，间隔大于阈值的，则被分配到不同的窗口。
@@ -2109,19 +2101,17 @@ Timer{timestamp=13, key=(c), namespace=TimeWindow{start=11, end=14}}
 ```
 
 
-###### 5.8.8.4 问题列表
+#### 5.8.8.4 问题列表
 
 - 在Periodic Watermarks情况下，如果把watermark设置成System.currentMillis(),每隔一个周期flink递增的获取系统时间作为watermark，
 是不是意味着小于系统时间的窗口都会立即被触发？
 
  查看EventTimeTrigger的onElement方法，了解触发窗口计算的机制
- 
-- 
 
 
 
 
-#### 5.9 Table API & SQL 
+## 5.9 Table API & SQL 
 
 关系型API统一了DataStream API 和DataSet API 
 
@@ -2129,7 +2119,7 @@ Timer{timestamp=13, key=(c), namespace=TimeWindow{start=11, end=14}}
 
 Table & SQL API 还有另一个职责，就是流处理和批处理统一的API层。Flink 在runtime层是统一的，因为Flink将批任务看做流的一种特例来执行，这也是 Flink 向外鼓吹的一点。然而在编程模型上，Flink 却为批和流提供了两套API （DataSet 和 DataStream）。为什么 runtime 统一，而编程模型不统一呢？ 在我看来，这是本末倒置的事情。用户才不管你 runtime 层是否统一，用户更关心的是写一套代码。这也是为什么现在 Apache Beam 能这么火的原因。所以 Table & SQL API 就扛起了统一API的大旗，批上的查询会随着输入数据的结束而结束并生成有限结果集，流上的查询会一直运行并生成结果流。Table & SQL API 做到了批与流上的查询具有同样的语法，因此不用改代码就能同时在批和流上跑。
 
-##### 5.9.1 Table API & SQL 长什么样？
+### 5.9.1 Table API & SQL 长什么样？
 
 下面这个例子展示了如何用Table API处理温度传感器数据。计算每天每个以room开头的location的平均温度。例子中涉及了如何使用window、event-time等：
 
@@ -2169,7 +2159,7 @@ val avgTempCTable: Table = tableEnv.sql("""
 ```
 
 
-##### 5.9.2 Table API & SQL 原理
+### 5.9.2 Table API & SQL 原理
 
 Flink非常明智，没有像Spark那样重复造轮子（Spark Catalyst），而是将SQL校验、SQL解析以及SQL优化交给了Apache Calcite。Calcite在其他很多开源项目中也都应用到了，譬如Apache 
 
@@ -2200,7 +2190,7 @@ DataStream/DataSet 程序。
 
 以字符串的形式存在。在提交任务后会分发到各个TaskManager中运行，在运行时会使用Janino编译器。
 
-##### 5.9.3 Table运行时
+### 5.9.3 Table运行时
 
 TableEnvironment以目录(catalog)的形式管理Schema的元数据与命名空间，如表和UDF，在TableEnvironment实例化时根Schema被创建。
 
@@ -2216,7 +2206,7 @@ TableEnvironment承担如下任务：
 
 5）管理StreamExecutionEnvironment和ExecutionEnvironment对象的引用
 
-##### 5.9.4 表注册
+### 5.9.4 表注册
 
 （1）输入表的注册途径
 
@@ -2274,7 +2264,7 @@ tableEnv
 （2）输出表由TableSink注册
 
 
-##### 5.9.5 SQL Client
+### 5.9.5 SQL Client
 
 学习Flink SQL的教程：[https://github.com/ververica/sql-training]
 
@@ -2677,7 +2667,7 @@ docker-compose down
 
 ```
 
-###### 5.9.5.1 过滤
+#### 5.9.5.1 过滤
 
 查询发生在纽约的行车记录：
 
@@ -2697,7 +2687,7 @@ SQL CLI提交一个SQL任务到Docker集群中，从数据源不断拉取数据�
 ![avatar](image/Flink_SQL_Client示例客户端_过滤_Dashboard.png)
 
 
-###### 5.9.5.2 Group Aggregate
+#### 5.9.5.2 Group Aggregate
 
 统计搭载每种乘客数量的行车事件数，也就是搭载1个乘客的行车事件数、搭载2个乘客的行车事件数 ...
 
@@ -2719,7 +2709,7 @@ GROUP BY psgCnt;
 
 
 
-###### 5.9.5.3 Window Aggregate
+#### 5.9.5.3 Window Aggregate
 
 为了持续监测纽约的交通流量，统计每个区每5分钟进入的车辆数，且只关心至少有5辆车子进入的区块。
 
@@ -2730,7 +2720,7 @@ GROUP BY psgCnt;
 ![avatar](image/Flink_SQL_Client示例客户端_Window_Aggregate_Dashboard.png)
 
 
-###### 5.9.5.4 将Append流写入Kafka
+#### 5.9.5.4 将Append流写入Kafka
 
 将"每10分钟的搭乘的乘客数"写入kafka：
 
@@ -2761,7 +2751,7 @@ Sink_TenMinPsgCnts表的update-mode为append。
 
 
 
-###### 5.9.5.5 将Update流写入ElasticSearch
+#### 5.9.5.5 将Update流写入ElasticSearch
 
 将"每个区域处于启动状态的行车数" 更新写入到ES中。
 
@@ -3287,9 +3277,9 @@ Sink_AreaCnts表的update-mode为upsert。
 ```
 
 
-#### 5.10 连接器
+## 5.10 连接器
 
-##### 5.10.1 Async I/O
+### 5.10.1 Async I/O
 
  主要目的是为了解决与外部系统交互时网络延迟成了系统瓶颈的问题。
  
@@ -3367,7 +3357,7 @@ AsyncWaitOperator主要由两部分组成：StreamElementQueue 和 Emitter 。
 实际上 AsyncCollector 是一个 Promise ，也就是 P5，在调用 collect 的时候会标记 Promise 为完成状态，并通知 Emitter 线程有完成的消息可以发送了。
 Emitter 就会从队列中拉取完成的 Promise ，并从 Promise 中取出消息发送给下游。
 
-###### 5.10.1.1 消息的顺序性
+#### 5.10.1.1 消息的顺序性
 
 Async I/O 提供了两种输出模式。细分有三种模式：有序、ProcessingTime无序、EventTime无序。Flink使用队列来实现不同的输出模式，并抽象出一个队列的接口（StreamElementQueue），
 这种分层设计使得AsyncWaitOperator和Emitter不用关心消息的顺序问题。StreamElementQueue有两种具体实现，分别是 OrderedStreamElementQueue 和 UnorderedStreamElementQueue。
@@ -3414,11 +3404,11 @@ uncompletedQueue队尾，最后再创建一个空集合加到uncompletedQueue队
 
 恢复的时候，从快照中读取所有的元素全部再处理一次，当然包括之前已完成回调的元素。所以在失败恢复后，会有元素重复请求外部服务，但是每个回调的结果只会被发往下游一次。
 
-#### 5.11 有状态流式处理引擎的基石
+## 5.11 有状态流式处理引擎的基石
 
 Stateful processing
 
-##### 5.11.1 状态容错（State Fault Tolerance）
+### 5.11.1 状态容错（State Fault Tolerance）
 
   ![avatar](image/传统批次处理方法.png)
   
@@ -3462,9 +3452,9 @@ Stateful processing
 
   
   
-##### 5.11.2 状态维护
+### 5.11.2 状态维护
 
-###### 5.11.2.1 托管的Keyed State
+#### 5.11.2.1 托管的Keyed State
 
 该类状态的数据结构由引擎定义，Flink运行时负责序列化及写入后端状态。当并行度改变时，Flink负责重新拆分托管状态到各个实例上。
 
@@ -3529,7 +3519,7 @@ object ExampleCountWindowAverage extends App {
 
 以上代码的输出为(1,8),(1,11)
 
-###### 5.11.2.2 状态后端配置
+#### 5.11.2.2 状态后端配置
 
 - InMemory
 
@@ -3557,13 +3547,13 @@ object ExampleCountWindowAverage extends App {
 
 ```
 
-##### 5.11.3 Event-time处理
+### 5.11.3 Event-time处理
 
   使用watermark确定Operator何时才能输出结果：
 
   ![avatar](image/Watermarks.png)
 
-###### 5.11.3.1 问题列表
+#### 5.11.3.1 问题列表
 
 - 1. watermark发送之后，发现下游的窗口就不再进行运算了，剔除窗口中的异常数据有什么好的办法？
 
@@ -3597,9 +3587,9 @@ object ExampleCountWindowAverage extends App {
   
   
 
-##### 5.11.4 状态保存与迁移
+### 5.11.4 状态保存与迁移
 
-###### 5.11.4.1 检查点
+#### 5.11.4.1 检查点
 
 ```
 
@@ -3622,7 +3612,7 @@ object ExampleCountWindowAverage extends App {
 
 ```
 
-###### 5.11.4.2 保存点
+#### 5.11.4.2 保存点
 
   可以想成：一个手动产生的检查点（Checkpoint）
 
@@ -3643,9 +3633,9 @@ object ExampleCountWindowAverage extends App {
   ![avatar](image/从保存点开始恢复应用.png)
 
 
-### 6. 维表join
+# 6. 维表join
 
-#### 6.1 维表join语法
+## 6.1 维表join语法
 
     由于维表是一张不断变化的表（静态表只是动态表的一种特例）。那如何 JOIN 一张不断变化的表呢？如果用传统的 JOIN 语法SELECT * FROM T JOIN dim_table on T.id = dim_table.id来表达维表 JOIN，是不完整的。因为维度表是一直在更新变化的，如果用这个语法那么关联上的是哪个时刻的维表呢？我们是不知道的，结果是不确定的。所以Flink SQL的维表join语法引入了 “SQL：2011 Temporal Table”的标准语法，用来声明关联的是维表哪个时刻的快照。维表join语法示例如下：
     
@@ -3677,7 +3667,7 @@ object ExampleCountWindowAverage extends App {
     
     ```
 
-##### 6.1.1 join当前维表 
+### 6.1.1 join当前维表 
 
     ```
     
@@ -3692,7 +3682,7 @@ object ExampleCountWindowAverage extends App {
 
 
 
-##### 6.1.2 join历史维表
+### 6.1.2 join历史维表
 
     ```
     
@@ -3706,11 +3696,11 @@ object ExampleCountWindowAverage extends App {
     有时候想关联上的维度数据，并不是当前时刻的值，而是某个历史时刻的值。比如，产品的价格一直发生变化，订单流希望补全的是下单时的价格，而不是当前的价格，那就是join历史维表。语法上只需要将上文的PROCTIME()改成o.orderTime即可。含义是关联上的是下单时刻的Products维表。
 
 
-#### 6.2 缓存
+## 6.2 缓存
 
 数据库的维表查询请求，有大量相同key的重复请求。如何减少重复请求？本地缓存是常用的方案。Flink SQL目前提供两种缓存方案：LRU和ALL。
 
-##### 6.2.1 LRU
+### 6.2.1 LRU
 
     通过 cache = 'LRU' 参数可以开启LRU缓存优化，为每个JoinTable创建一个LRU本地缓存。当每个数据进来的时候，先去缓存中查询，如果存在则直接关联输出，减少一次I/O请求。
     如果不存在，再发起数据库查询请求（异步或同步方式），请求返回的结果会先存入缓存中以备下次查询。
@@ -3719,7 +3709,7 @@ object ExampleCountWindowAverage extends App {
     cacheTTLMs是作用于每条缓存数据上的，也就是某条缓存数据在指定timeout时间内没有被访问，则会从缓存中移除。
 
 
-##### 6.2.2 ALL
+### 6.2.2 ALL
 
 
     Async和LRU-Cache能极大提高吞吐率并降低数据库的读压力，但是仍然会有大量的IO请求存在，尤其当miss key(维表中不存在的key)很多的时候，即缓存穿透。 如果维表数据量不大（通常百万级以内），那么其实可以将整个维表缓存到本地。那么miss key永远不会去请求数据库，因为本地缓存就是维表的镜像，缓存中不存在那么远程数据库中也不存在。
@@ -3729,15 +3719,15 @@ object ExampleCountWindowAverage extends App {
     因为几乎没有IO操作，所以使用cache ALL的维表join性能可以非常高。但是由于内存可能需要能同时容纳下两份维表拷贝，因此需要加大内存的配置。
 
 
-##### 6.2.3 缓存未命中key
+### 6.2.3 缓存未命中key
 
     在使用LRU缓存时，如果存在大量的invalid key，或者数据库中不存在的key。由于命中不了缓存，导致缓存的收益较低，仍然会有大量请求打到数据库。因此我们将未命中的key也加进了缓存，提高了未命中key和invalid key 情况下的缓存命中率。
 
-##### 6.2.4 最佳实践
+### 6.2.4 最佳实践
 
     在使用维表join时，如果维表数据不大，或者miss key（维表中不存在的key）非常多，则可以使用ALL cache，但是可能需要适当调大节点的内存，因为内存需要能同时容纳下两份维表拷贝。如果用不了ALL cache，则可以使用Async + LRU来提高节点的吞吐。
 
-##### 6.2.5 优化点
+### 6.2.5 优化点
 
     - 使用SideInput减少对数据库的全量读取
     - 引入Partitioned-ALL-cache支持超大维表 
