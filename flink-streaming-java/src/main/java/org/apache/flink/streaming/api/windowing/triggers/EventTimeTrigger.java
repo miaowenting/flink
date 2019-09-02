@@ -37,6 +37,7 @@ public class EventTimeTrigger extends Trigger<Object, TimeWindow> {
 	public TriggerResult onElement(Object element, long timestamp, TimeWindow window, TriggerContext ctx) throws Exception {
 		if (window.maxTimestamp() <= ctx.getCurrentWatermark()) {
 			// if the watermark is already past the window fire immediately
+			// 窗口的end时间戳 <= 当前的watermark时间戳，触发窗口
 			return TriggerResult.FIRE;
 		} else {
 			ctx.registerEventTimeTimer(window.maxTimestamp());

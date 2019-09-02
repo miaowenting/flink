@@ -1977,6 +1977,150 @@ public void processElement(StreamRecord<IN> element) throws Exception {
 Google DataFlow 论文
 
 
+- 示例代码
+
+```
+/**
+ * An example of session windowing that keys events by ID and groups and counts them in
+ * session with gaps of 3 milliseconds.
+ */
+public class SessionWindowing {
+
+	@SuppressWarnings("serial")
+	public static void main(String[] args) throws Exception {
+
+		final ParameterTool params = ParameterTool.fromArgs(args);
+		final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+
+		env.getConfig().setGlobalJobParameters(params);
+		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+		env.setParallelism(1);
+
+		final boolean fileOutput = params.has("output");
+
+		final List<Tuple3<String, Long, Integer>> input = new ArrayList<>();
+
+		// key、event time时间戳、key出现的次数
+		input.add(new Tuple3<>("a", 1L, 1));
+
+		input.add(new Tuple3<>("b", 1L, 1));
+		input.add(new Tuple3<>("b", 3L, 1));
+		input.add(new Tuple3<>("b", 5L, 1));
+
+		input.add(new Tuple3<>("c", 6L, 1));
+
+		input.add(new Tuple3<>("a", 1L, 2));
+		
+		// We expect to detect the session "a" earlier than this point (the old
+		// functionality can only detect here when the next starts)
+		input.add(new Tuple3<>("a", 10L, 1));
+		// We expect to detect session "b" and "c" at this point as well
+		input.add(new Tuple3<>("c", 11L, 1));
+
+		DataStream<Tuple3<String, Long, Integer>> source = env
+				.addSource(new SourceFunction<Tuple3<String, Long, Integer>>() {
+					private static final long serialVersionUID = 1L;
+
+					@Override
+					public void run(SourceContext<Tuple3<String, Long, Integer>> ctx) throws Exception {
+						for (Tuple3<String, Long, Integer> value : input) {
+							ctx.collectWithTimestamp(value, value.f1);
+							// 发射watermark
+							ctx.emitWatermark(new Watermark(value.f1 - 1));
+						}
+						ctx.emitWatermark(new Watermark(Long.MAX_VALUE));
+					}
+
+					@Override
+					public void cancel() {
+					}
+				});
+
+		// We create sessions for each id with max timeout of 3 time units
+		DataStream<Tuple3<String, Long, Integer>> aggregated = source
+				.keyBy(0)
+				.window(EventTimeSessionWindows.withGap(Time.milliseconds(3L)))
+				.sum(2);
+
+		if (fileOutput) {
+			aggregated.writeAsText(params.get("output"));
+		} else {
+			System.out.println("Printing result to stdout. Use --output to specify output path.");
+			aggregated.print();
+		}
+
+		env.execute();
+	}
+}
+```
+
+以下为示例代码输出的结果:
+
+```
+(a,1,1)
+(b,1,3)
+(c,6,1)
+(a,10,1)
+(c,11,1)
+
+```
+
+其中（"a", 1L, 2）这条数据会被丢弃,因为这条数据晚到了。可以通过旁路输出输出这条晚到的数据。
+
+在InternalTimerServiceImpl.java的advanceWatermark()方法中添加一行打印增量watermark的日志：
+
+```
+
+public void advanceWatermark(long time) throws Exception {
+		System.out.println(String.format("Advanced watermark %s", time));
+		currentWatermark = time;
+
+		InternalTimer<K, N> timer;
+
+		while ((timer = eventTimeTimersQueue.peek()) != null && timer.getTimestamp() <= time) {
+			eventTimeTimersQueue.poll();
+			keyContext.setCurrentKey(timer.getKey());
+			triggerTarget.onEventTime(timer);
+		}
+	}
+	
+``` 
+
+重新运行输出的结果为：
+
+```
+Advanced watermark 0
+Advanced watermark 2
+Advanced watermark 4
+Timer{timestamp=3, key=(a), namespace=TimeWindow{start=1, end=4}}
+(a,1,1)
+Advanced watermark 5
+Advanced watermark 9
+Timer{timestamp=7, key=(b), namespace=TimeWindow{start=1, end=8}}
+(b,1,3)
+Timer{timestamp=8, key=(c), namespace=TimeWindow{start=6, end=9}}
+(c,6,1)
+Advanced watermark 10
+Advanced watermark 9223372036854775807
+Timer{timestamp=12, key=(a), namespace=TimeWindow{start=10, end=13}}
+(a,10,1)
+Timer{timestamp=13, key=(c), namespace=TimeWindow{start=11, end=14}}
+(c,11,1)
+```
+
+
+###### 5.8.8.4 问题列表
+
+- 在Periodic Watermarks情况下，如果把watermark设置成System.currentMillis(),每隔一个周期flink递增的获取系统时间作为watermark，
+是不是意味着小于系统时间的窗口都会立即被触发？
+
+ 查看EventTimeTrigger的onElement方法，了解触发窗口计算的机制
+ 
+- 
+
+
+
+
 #### 5.9 Table API & SQL 
 
 关系型API统一了DataStream API 和DataSet API 

@@ -1,41 +1,32 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package org.apache.flink.streaming.examples.windowing;
 
+import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
+import org.apache.flink.streaming.api.scala.OutputTag;
 import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.api.windowing.assigners.EventTimeSessionWindows;
+import org.apache.flink.streaming.api.windowing.assigners.SlidingEventTimeWindows;
 import org.apache.flink.streaming.api.windowing.time.Time;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * An example of session windowing that keys events by ID and groups and counts them in
- * session with gaps of 3 milliseconds.
+ * Description:
+ *
+ * @author mwt
+ * @version 1.0
+ * @date 2019-09-02
  */
-public class SessionWindowing {
-
+public class SideOutput {
 	@SuppressWarnings("serial")
 	public static void main(String[] args) throws Exception {
 
@@ -50,15 +41,12 @@ public class SessionWindowing {
 
 		final List<Tuple3<String, Long, Integer>> input = new ArrayList<>();
 
-		// key、event time时间戳、key出现的次数
+		// key、时间戳、次数
 		input.add(new Tuple3<>("a", 1L, 1));
-
 		input.add(new Tuple3<>("b", 1L, 1));
 		input.add(new Tuple3<>("b", 3L, 1));
 		input.add(new Tuple3<>("b", 5L, 1));
-
 		input.add(new Tuple3<>("c", 6L, 1));
-
 		input.add(new Tuple3<>("a", 1L, 2));
 		// We expect to detect the session "a" earlier than this point (the old
 		// functionality can only detect here when the next starts)
@@ -67,37 +55,45 @@ public class SessionWindowing {
 		input.add(new Tuple3<>("c", 11L, 1));
 
 		DataStream<Tuple3<String, Long, Integer>> source = env
-				.addSource(new SourceFunction<Tuple3<String, Long, Integer>>() {
-					private static final long serialVersionUID = 1L;
+			.addSource(new SourceFunction<Tuple3<String, Long, Integer>>() {
+				private static final long serialVersionUID = 1L;
 
-					@Override
-					public void run(SourceContext<Tuple3<String, Long, Integer>> ctx) throws Exception {
-						for (Tuple3<String, Long, Integer> value : input) {
-							ctx.collectWithTimestamp(value, value.f1);
-							// 发射watermark
-							ctx.emitWatermark(new Watermark(value.f1 - 1));
-						}
-						// 无限流，表示终止的watermark，需要一个超过window的end time的watermark来触发window计算
-						ctx.emitWatermark(new Watermark(Long.MAX_VALUE));
+				@Override
+				public void run(SourceContext<Tuple3<String, Long, Integer>> ctx) throws Exception {
+					for (Tuple3<String, Long, Integer> value : input) {
+						ctx.collectWithTimestamp(value, value.f1);
+						ctx.emitWatermark(new Watermark(value.f1 - 1));
 					}
+					ctx.emitWatermark(new Watermark(Long.MAX_VALUE));
+				}
 
-					@Override
-					public void cancel() {
-					}
-				});
+				@Override
+				public void cancel() {
+				}
+			});
 
+		final OutputTag<Tuple3<String, Long, Integer>> lateOutputTag = new OutputTag<Tuple3<String, Long, Integer>>(
+			"lateOutputTag", source.getType()) {
+		};
 		// We create sessions for each id with max timeout of 3 time units
 		DataStream<Tuple3<String, Long, Integer>> aggregated = source
-				.keyBy(0)
-				.window(EventTimeSessionWindows.withGap(Time.milliseconds(3L)))
-				.sum(2);
+			.keyBy(0)
+			.window(SlidingEventTimeWindows.of(Time.milliseconds(3L), Time.milliseconds(3L)))
+			.allowedLateness(Time.milliseconds(2L))
+			.sideOutputLateData(lateOutputTag)
+			.sum(2);
 
 		if (fileOutput) {
 			aggregated.writeAsText(params.get("output"));
 		} else {
 			System.out.println("Printing result to stdout. Use --output to specify output path.");
-			aggregated.print();
+//			aggregated.print();
 		}
+
+		// 旁路输出
+		DataStream<Tuple3<String, Long, Integer>> lateStream =
+			((SingleOutputStreamOperator<Tuple3<String, Long, Integer>>) aggregated).getSideOutput(lateOutputTag);
+		lateStream.keyBy(0).sum(2).print();
 
 		env.execute();
 	}

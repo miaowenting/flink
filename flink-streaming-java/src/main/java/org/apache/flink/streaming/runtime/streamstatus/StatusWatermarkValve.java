@@ -184,6 +184,7 @@ public class StatusWatermarkValve {
 
 		// we acknowledge and output the new overall watermark if it really is aggregated
 		// from some remaining aligned channel, and is also larger than the last output watermark
+		// 对齐，即同级算子的watermark都到达了。最新的watermark大于上次输出的watermark
 		if (hasAlignedChannels && newMinWatermark > lastOutputWatermark) {
 			lastOutputWatermark = newMinWatermark;
 			outputHandler.handleWatermark(new Watermark(lastOutputWatermark));

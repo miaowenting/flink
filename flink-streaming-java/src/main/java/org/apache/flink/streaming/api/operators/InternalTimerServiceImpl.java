@@ -75,7 +75,7 @@ public class InternalTimerServiceImpl<K, N> implements InternalTimerService<N>, 
 	/**
 	 * The one and only Future (if any) registered to execute the
 	 * next {@link Triggerable} action, when its (processing) time arrives.
-	 * */
+	 */
 	private ScheduledFuture<?> nextTimer;
 
 	// Variables to be set when the service is started.
@@ -92,7 +92,9 @@ public class InternalTimerServiceImpl<K, N> implements InternalTimerService<N>, 
 
 	private TypeSerializer<N> namespaceDeserializer;
 
-	/** The restored timers snapshot, if any. */
+	/**
+	 * The restored timers snapshot, if any.
+	 */
 	private InternalTimersSnapshot<K, N> restoredTimersSnapshot;
 
 	InternalTimerServiceImpl(
@@ -119,16 +121,16 @@ public class InternalTimerServiceImpl<K, N> implements InternalTimerService<N>, 
 	/**
 	 * Starts the local {@link InternalTimerServiceImpl} by:
 	 * <ol>
-	 *     <li>Setting the {@code keySerialized} and {@code namespaceSerializer} for the timers it will contain.</li>
-	 *     <li>Setting the {@code triggerTarget} which contains the action to be performed when a timer fires.</li>
-	 *     <li>Re-registering timers that were retrieved after recovering from a node failure, if any.</li>
+	 * <li>Setting the {@code keySerialized} and {@code namespaceSerializer} for the timers it will contain.</li>
+	 * <li>Setting the {@code triggerTarget} which contains the action to be performed when a timer fires.</li>
+	 * <li>Re-registering timers that were retrieved after recovering from a node failure, if any.</li>
 	 * </ol>
 	 * This method can be called multiple times, as long as it is called with the same serializers.
 	 */
 	public void startTimerService(
-			TypeSerializer<K> keySerializer,
-			TypeSerializer<N> namespaceSerializer,
-			Triggerable<K, N> triggerTarget) {
+		TypeSerializer<K> keySerializer,
+		TypeSerializer<N> namespaceSerializer,
+		Triggerable<K, N> triggerTarget) {
 
 		if (!isInitialized) {
 
@@ -266,11 +268,15 @@ public class InternalTimerServiceImpl<K, N> implements InternalTimerService<N>, 
 	}
 
 	public void advanceWatermark(long time) throws Exception {
+		// 打印增量watermark
+		System.out.println(String.format("Advanced watermark %s", time));
 		currentWatermark = time;
 
 		InternalTimer<K, N> timer;
 
 		while ((timer = eventTimeTimersQueue.peek()) != null && timer.getTimestamp() <= time) {
+			// 打印触发时的timer
+			System.out.println(timer);
 			eventTimeTimersQueue.poll();
 			keyContext.setCurrentKey(timer.getKey());
 			triggerTarget.onEventTime(timer);
@@ -303,8 +309,8 @@ public class InternalTimerServiceImpl<K, N> implements InternalTimerService<N>, 
 	 * Restore the timers (both processing and event time ones) for a given {@code keyGroupIdx}.
 	 *
 	 * @param restoredSnapshot the restored snapshot containing the key-group's timers,
-	 *                       and the serializers that were used to write them
-	 * @param keyGroupIdx the id of the key-group to be put in the snapshot.
+	 *                         and the serializers that were used to write them
+	 * @param keyGroupIdx      the id of the key-group to be put in the snapshot.
 	 */
 	@SuppressWarnings("unchecked")
 	public void restoreTimersForKeyGroup(InternalTimersSnapshot<?, ?> restoredSnapshot, int keyGroupIdx) {

@@ -300,6 +300,7 @@ public class WindowOperator<K, IN, ACC, OUT, W extends Window>
 
 		final K key = this.<K>getKeyedStateBackend().getCurrentKey();
 
+		// session window 需要合并操作
 		if (windowAssigner instanceof MergingWindowAssigner) {
 			MergingWindowSet<W> mergingWindows = getMergingWindowSet();
 
@@ -382,14 +383,17 @@ public class WindowOperator<K, IN, ACC, OUT, W extends Window>
 			// need to make sure to update the merging state in state
 			mergingWindows.persist();
 		} else {
+			// 非合并窗口操作
 			for (W window: elementWindows) {
 
 				// drop if the window is already late
 				if (isWindowLate(window)) {
+					// 数据晚到，直接忽略
 					continue;
 				}
 				isSkippedElement = false;
 
+				// 记录窗口状态，保证数据一致性
 				windowState.setCurrentNamespace(window);
 				windowState.add(element.getValue());
 
