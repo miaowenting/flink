@@ -283,17 +283,40 @@ TaskManager JVM中operator subtask、thread、task slot之间的关系：
 
 ![avatar](image/operatorSubatask_thread_taskSlot之间的关系.png)
 
+关于Slot管理的流程图如下：
+
+![avatar](image/Slot管理.png)
+
+- ResourceManager
+  Slot Manager
+  管理Slot状态
+  分配Slot资源
+  
+- TaskExecutor
+  实际持有Slot资源
+  
+- JobManager
+  Slot资源的申请者
+
 
 
 ### 1.3.3 错误恢复
 
+#### 1.3.3.1 Task Failover
 
-#### 1.3.3.1 状态存储
+单个Task执行失败或TM出错退出等
+可以有不同的恢复策略
+
+#### 1.3.3.2 AM Failover
+
+AM执行失败
+
+#### 1.3.3.3 状态存储
 
 streaming dataflow中的一些operator（如windows）是有状态的。这些状态（被索引的键值对）作为checkpoint的一部分，可以存储在内存/HDFS/RocksDB中（通过配置控制）。
 
 
-#### 1.3.3.2 保存点(savepoint)
+#### 1.3.3.4 保存点(savepoint)
 
 使用DataStream API编写的Flink程序可以从任意指定的savepoint开始执行。Savepoint允许你“冻结”stream的处理、更新你的flink程序甚至你的flink集群（如升级版本），然后可以从savepoints恢复执行。
 
