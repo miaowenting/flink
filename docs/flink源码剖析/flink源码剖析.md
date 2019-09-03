@@ -3429,8 +3429,21 @@ flink1_9_0_SQL实践输出数据到mysql表：
 
 
 
-
 ## 5.10 连接器
+
+### 5.10.1 预定义的Source和Sink
+
+  ![avatar](image/预定义的source和sink.png)
+
+
+### 5.10.2 Bundled Connectors
+
+  ![avatar](image/bundled_connectors.png)
+
+
+### 5.10.3 Apache Bahir中的连接器
+
+  ![avatar](image/Apache_Bahir开源项目中的连接器.png)
 
 ### 5.10.1 Async I/O
 
