@@ -138,21 +138,42 @@ public class TwoPhaseCommitSinkFunctionTest {
 		harness.close();
 	}
 
+	/**
+	 * 发送element  "42" - 0
+	 * 发送snapshot  0   - 1
+	 * 发送element  "43" - 2
+	 * 发送snapshot  1   - 3
+	 * 发送element  "44" - 4
+	 * 发送snapshot  2   - 5
+	 *
+	 * 测试场景：
+	 * 测试完整的两阶段提交流程，通知checkpointId-1完成，那写入到target目录的数据只有"42","43"
+	 * 此时，在tmp目录下状态数据应该有一个checkpointId-2和数据"44"
+	 */
 	@Test
 	public void testNotifyOfCompletedCheckpoint() throws Exception {
+		// 准备工作：initializeEmptyState、打开userFunction、初始化SimpleContext
 		harness.open();
 		harness.processElement("42", 0);
 		harness.snapshot(0, 1);
+		tmpDirectory.listFiles();
 		harness.processElement("43", 2);
 		harness.snapshot(1, 3);
+		tmpDirectory.listFiles();
 		harness.processElement("44", 4);
 		harness.snapshot(2, 5);
+		tmpDirectory.listFiles();
 		harness.notifyOfCompletedCheckpoint(1);
 
 		assertExactlyOnce(Arrays.asList("42", "43"));
 		assertEquals(2, tmpDirectory.listFiles().size()); // one for checkpointId 2 and second for the currentTransaction
 	}
 
+	/**
+	 * 测试场景：
+	 * 没有执行notifyOfCompletedCheckpoint之前程序挂了，恢复时从checkpointId-1恢复
+	 * 应该保证target目录中的数据只有"42","43"，且无状态数据
+	 */
 	@Test
 	public void testFailBeforeNotify() throws Exception {
 		harness.open();
@@ -176,6 +197,7 @@ public class TwoPhaseCommitSinkFunctionTest {
 
 		tmpDirectory.setWritable(true);
 
+		// 从快照checkpoint-1恢复state
 		setUpTestHarness();
 		harness.initializeState(snapshot);
 
@@ -285,6 +307,9 @@ public class TwoPhaseCommitSinkFunctionTest {
 		assertEquals(expectedValues, actualValues);
 	}
 
+	/**
+	 * 实现两阶段提交的function
+	 */
 	private class ContentDumpSinkFunction extends TwoPhaseCommitSinkFunction<String, ContentTransaction, Void> {
 
 		public ContentDumpSinkFunction() {
@@ -293,28 +318,43 @@ public class TwoPhaseCommitSinkFunctionTest {
 				VoidSerializer.INSTANCE, clock);
 		}
 
+		/**
+		 * 接收到事件，invoke处理事件
+		 */
 		@Override
 		protected void invoke(ContentTransaction transaction, String value, Context context) throws Exception {
 			transaction.tmpContentWriter.write(value);
 		}
 
+		/**
+		 * 开启事务
+		 */
 		@Override
 		protected ContentTransaction beginTransaction() throws Exception {
+			// 开启事务，创建写文件的writer
 			return new ContentTransaction(tmpDirectory.createWriter(UUID.randomUUID().toString()));
 		}
 
+		/**
+		 * 预提交阶段
+		 */
 		@Override
 		protected void preCommit(ContentTransaction transaction) throws Exception {
+			// 刷写到临时文件
 			transaction.tmpContentWriter.flush();
 			transaction.tmpContentWriter.close();
 		}
 
+		/**
+		 * 提交阶段
+		 */
 		@Override
 		protected void commit(ContentTransaction transaction) {
 			if (throwException.get()) {
 				throw new RuntimeException("Expected exception");
 			}
 
+			// 转移tmp目录下的文件到target目录下
 			ContentDump.move(
 				transaction.tmpContentWriter.getName(),
 				tmpDirectory,
@@ -322,6 +362,9 @@ public class TwoPhaseCommitSinkFunctionTest {
 
 		}
 
+		/**
+		 * abort，进行回滚操作，把预提交阶段刷写的临时文件删除
+		 */
 		@Override
 		protected void abort(ContentTransaction transaction) {
 			transaction.tmpContentWriter.close();
@@ -329,6 +372,9 @@ public class TwoPhaseCommitSinkFunctionTest {
 		}
 	}
 
+	/**
+	 * 事务操作类
+	 */
 	private static class ContentTransaction {
 		private ContentDump.ContentWriter tmpContentWriter;
 

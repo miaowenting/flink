@@ -34,6 +34,9 @@ import static org.apache.flink.util.Preconditions.checkState;
  */
 public class ContentDump {
 	private boolean writable = true;
+	/**
+	 * filename,List<String>
+	 */
 	private Map<String, List<String>> filesContent = new HashMap<>();
 
 	public Set<String> listFiles() {

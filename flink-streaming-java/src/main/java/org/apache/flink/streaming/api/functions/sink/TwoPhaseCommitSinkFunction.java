@@ -280,6 +280,7 @@ public abstract class TwoPhaseCommitSinkFunction<IN, TXN, CONTEXT>
 
 			logWarningIfTimeoutAlmostReached(pendingTransaction);
 			try {
+				// 执行commit操作
 				commit(pendingTransaction.handle);
 			} catch (Throwable t) {
 				if (firstError == null) {
@@ -308,6 +309,7 @@ public abstract class TwoPhaseCommitSinkFunction<IN, TXN, CONTEXT>
 		long checkpointId = context.getCheckpointId();
 		LOG.debug("{} - checkpoint {} triggered, flushing transaction '{}'", name(), context.getCheckpointId(), currentTransactionHolder);
 
+		// 执行预提交操作
 		preCommit(currentTransactionHolder.handle);
 		pendingCommitTransactions.put(checkpointId, currentTransactionHolder);
 		LOG.debug("{} - stored pending transactions {}", name(), pendingCommitTransactions);
@@ -370,6 +372,7 @@ public abstract class TwoPhaseCommitSinkFunction<IN, TXN, CONTEXT>
 		}
 		this.pendingCommitTransactions.clear();
 
+		// 开启事务
 		currentTransactionHolder = beginTransactionInternal();
 		LOG.debug("{} - started new transaction '{}'", name(), currentTransactionHolder);
 	}

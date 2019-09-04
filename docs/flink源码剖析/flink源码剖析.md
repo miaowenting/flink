@@ -2338,6 +2338,8 @@ tableEnv
 
 学习Flink SQL Client的教程：[https://github.com/ververica/sql-training]
 
+[https://github.com/miaowenting/sql-training]
+
 下载该工程，修改  build.sh 和 docker-compose.yml 等。
 
 build.sh:
@@ -3441,130 +3443,259 @@ flink1_9_0_SQL实践输出数据到mysql表：
 
 #### 5.10.2.1 Flink Kafka Connector
 
-  - Flink Kafka Consumer
+##### 5.10.2.1.1 Flink Kafka Consumer
+
++ 反序列化数据
+  
+  * 将kafka中二进制数据转化为具体的java、scala对象
     
-    + 反序列化数据
+  * DeserializationSchema, T deserialize(byte[] message)
+        
+    - SimpleStringSchema: 按字符串方式进行序列化、反序列化
+      
+    - TypeInformationSerializationSchema: 基于Flink的TypeInformation来创建Schema
+      
+    - JsonDeserializationSchema: 使用jackson反序列化json格式消息，并返回ObjectNode，可以使用.get("property")方法来访问字段
     
-      * 将kafka中二进制数据转化为具体的java、scala对象
-      
-      * DeserializationSchema, T deserialize(byte[] message)
-        
-        - SimpleStringSchema: 按字符串方式进行序列化、反序列化
-        
-        - TypeInformationSerializationSchema: 基于Flink的TypeInformation来创建Schema
-        
-        - JsonDeserializationSchema: 使用jackson反序列化json格式消息，并返回ObjectNode，可以使用.get("property")方法来访问字段
-      
-      * KeyedDeserializationSchema, T deserialize(byte[] messageKey,byte[] message,String topic,int partition,long 
+  * KeyedDeserializationSchema, T deserialize(byte[] messageKey,byte[] message,String topic,int partition,long 
       offset): 对于访问kafka key/value
-    
-    + 消费起始位置设置
-    
-      * setStartFromGroupOffsets(默认)
-        
-        从kafka记录的group.id的位置开始读取，如果没有根据auto.offset.reset设置
-      
-      * setStartFromEarliest
-      
-        从kafka最早的位置读取
-      
-      * setStartFromLatest
-      
-        从kafka最新数据开始读取
-      
-      * setStartFromTimestamp(long)
-      
-        从时间戳大于或等于指定时间戳的位置开始读取
-      
-      * setStartFromSpecificOffsets
-      
-        从指定的分区的offset位置开始读取，如指定的offsets中不存在某个分区，该分区从group offset位置开始读取
-    
-    + topic partition自动发现
-    
-      原理：内部单独的线程获取kafka meta信息进行更新
-      flink.partition-discovery.interval-millis: 发现时间间隔，默认false，设置非负值开启
-      
-      * 分区发现
-      
-        消费的source kafka topic进行了partition扩容
-        
-        新发现的分区，从earliest位置开始读取
-      
-      * topic发现
-      
-        支持正则表达式描述topic名字
-    
-    + commit offset方式
-    
-      * checkpoint关闭
-      
-        依赖kafka客户端的auto commit定期提交offset
-        
-        需设置enable.auto.commit，auto.commit.interval.ms参数到consumer properties
-      
-      * checkpoint开启
-      
-        offset自己在checkpoint state中管理和容错。提交kafka仅作为外部监视消费进度
-        
-        通过setCommitOffsetsOnCheckpoints控制，checkpoint成功之后，是否提交offset到kafka
-    
-    + 时戳提取/水位生成
-    
-        ![avatar](image/flink_kafka_consumer_时戳提取_水位生成.png)
-        
   
-  - Flink Kafka Producer
++ 消费起始位置设置
   
-    + Producer分区
-    
-      * FlinkFixedPartitioner（默认）：parallelInstanceId % partitions.length
-      
-      * Partitioner设置为null：round-robin kafka partitioner
-      
-      * custom partitioner：自定义分区
-    
-    + Producer容错
-    
-      * kafka 0.9 and 0.10
-      
-        - setLogFailuresOnly：默认false，写失败时，是否只打印失败log，不抛异常
+  * setStartFromGroupOffsets(默认)
         
-        - setFlushOnCheckpoint：默认true，checkpoint时保证数据写到kafka
-        
-        - at-least-once语义：setLogFailuresOnly：false + setFlushOnCheckpoint：true
+    从kafka记录的group.id的位置开始读取，如果没有根据auto.offset.reset设置
+    
+  * setStartFromEarliest
+    
+    从kafka最早的位置读取
+    
+  * setStartFromLatest
+    
+    从kafka最新数据开始读取
+    
+  * setStartFromTimestamp(long)
+    
+    从时间戳大于或等于指定时间戳的位置开始读取
+    
+  * setStartFromSpecificOffsets
+    
+    从指定的分区的offset位置开始读取，如指定的offsets中不存在某个分区，该分区从group offset位置开始读取
+  
++ topic partition自动发现
+  
+  原理：内部单独的线程获取kafka meta信息进行更新
+  flink.partition-discovery.interval-millis: 发现时间间隔，默认false，设置非负值开启
       
-      * kafka 0.11
-      
-        - FlinkKafkaProducer011，两阶段提交Sink结合kafka事务，可以保证端到端精准一次
+  * 分区发现
+    
+    消费的source kafka topic进行了partition扩容
         
-        [https://www.ververica.com/blog/end-to-end-exactly-once-processing-apache-flink-apache-kafka]
+    新发现的分区，从earliest位置开始读取
+    
+  * topic发现
+    
+    支持正则表达式描述topic名字
+  
++ commit offset方式
+  
+  * checkpoint关闭
+    
+    依赖kafka客户端的auto commit定期提交offset
+        
+    需设置enable.auto.commit，auto.commit.interval.ms参数到consumer properties
+    
+  * checkpoint开启
+    
+    offset自己在checkpoint state中管理和容错。提交kafka仅作为外部监视消费进度
+        
+    通过setCommitOffsetsOnCheckpoints控制，checkpoint成功之后，是否提交offset到kafka
+  
++ 时戳提取/水位生成
+  
+  ![avatar](image/flink_kafka_consumer_时戳提取_水位生成.png)
+        
+##### 5.10.2.1.2 Flink Kafka Producer
 
-        `TwoPhaseCommitSinkFunction`
-        
-        预提交阶段从开始注入一个checkpoint barrier开始：
-        
-        ![avatar](image/两阶段提交协议_预提交阶段_开始注入checkpoint_barrier.png)
-        
-        checkpoint barrier从一个operator流入另一个operator，触发operator的状态后端生成状态快照，Data Source 存储的kafka的消费位置：
-        
-        ![avatar](image/两阶段提交协议_预提交阶段_source_Snapshot_offsets.png)
-        
-        Data Sink写入到外部系统kafka，就会包含external state，外部系统必须提供事务支持才行：
-        
-        ![avatar](image/两阶段提交协议_预提交阶段_sink_Snapshot_state_and_Pre-commit.png)
-        
-        当checkpoint barrier流过所有的operators并且触发了所有snapshot生成完毕，代表预提交阶段完成。所有的状态快照都被认为是一次checkpoint
-        的一部分，checkpoint是一个全局状态快照，包括预提交阶段的external state。失败的情况下，可以从上一次成功的checkpoint处恢复。
-        
-        下一步就是通知所有的operators本次checkpoint已经完成了，Data Sink进行真正的提交操作：
-        
-        ![avatar](image/两阶段提交协议_提交阶段.png)
-        
-        这里写入的是kafka这种提供了事务操作的外部系统。假设是写入文件系统，可以在预提交阶段写入一个临时目录的临时文件，在提交阶段再重命名到真实目录的真实文件。
++ Producer分区
+  
+  * FlinkFixedPartitioner（默认）：parallelInstanceId % partitions.length
+    
+  * Partitioner设置为null：round-robin kafka partitioner
+    
+  * custom partitioner：自定义分区
+  
++ Producer容错
+  
+  * kafka 0.9 and 0.10
+    
+    - setLogFailuresOnly：默认false，写失败时，是否只打印失败log，不抛异常
+      
+    - setFlushOnCheckpoint：默认true，checkpoint时保证数据写到kafka
+      
+    - at-least-once语义：setLogFailuresOnly：false + setFlushOnCheckpoint：true
+    
+  * kafka 0.11
+    
+    - FlinkKafkaProducer011，两阶段提交Sink结合kafka事务，可以保证端到端精准一次
+      
+      [https://www.ververica.com/blog/end-to-end-exactly-once-processing-apache-flink-apache-kafka]
+
+      `TwoPhaseCommitSinkFunction`
+      
+      预提交阶段从开始注入一个checkpoint barrier开始：
+      
+      ![avatar](image/两阶段提交协议_预提交阶段_开始注入checkpoint_barrier.png)
+      
+      checkpoint barrier从一个operator流入另一个operator，触发operator的状态后端生成状态快照，Data Source 存储的kafka的消费位置：
+      
+      ![avatar](image/两阶段提交协议_预提交阶段_source_Snapshot_offsets.png)
+      
+      Data Sink写入到外部系统kafka，就会包含external state，外部系统必须提供事务支持才行：
+      
+      ![avatar](image/两阶段提交协议_预提交阶段_sink_Snapshot_state_and_Pre-commit.png)
+      
+          当checkpoint barrier流过所有的operators并且触发了所有snapshot生成完毕，代表预提交阶段完成。所有的状态快照都被认为是一次checkpoint
+      的一部分，checkpoint是一个全局状态快照，包括预提交阶段的external state。失败的情况下，可以从上一次成功的checkpoint处恢复。
+      
+         下一步就是通知所有的operators本次checkpoint已经完成了，Data Sink进行真正的提交操作：
+      
+      ![avatar](image/两阶段提交协议_提交阶段.png)
+      
+        这里写入的是kafka这种提供了事务操作的外部系统。
+      
         
 
-        
+##### 5.10.2.1.3 TwoPhaseCommitSinkFunction实操
+
+  假设是写入文件系统，可以在预提交阶段写入一个临时目录的临时文件，在提交阶段再重命名到真实目录的真实文件。
+
+  可以查看flink自带的`TwoPhaseCommitSinkFunctionTest`
+
+自定义实现两阶段提交function：
+
+```
+    /**
+	 * 实现两阶段提交的function
+	 */
+	private class ContentDumpSinkFunction extends TwoPhaseCommitSinkFunction<String, ContentTransaction, Void> {
+
+		public ContentDumpSinkFunction() {
+			super(
+				new KryoSerializer<>(ContentTransaction.class, new ExecutionConfig()),
+				VoidSerializer.INSTANCE, clock);
+		}
+
+		/**
+		 * 接收到事件，invoke处理事件
+		 */
+		@Override
+		protected void invoke(ContentTransaction transaction, String value, Context context) throws Exception {
+			transaction.tmpContentWriter.write(value);
+		}
+
+		/**
+		 * 开启事务
+		 */
+		@Override
+		protected ContentTransaction beginTransaction() throws Exception {
+			// 开启事务，创建写文件的writer
+			return new ContentTransaction(tmpDirectory.createWriter(UUID.randomUUID().toString()));
+		}
+
+		/**
+		 * 预提交阶段
+		 */
+		@Override
+		protected void preCommit(ContentTransaction transaction) throws Exception {
+			// 刷写到临时文件
+			transaction.tmpContentWriter.flush();
+			transaction.tmpContentWriter.close();
+		}
+
+		/**
+		 * 提交阶段
+		 */
+		@Override
+		protected void commit(ContentTransaction transaction) {
+			if (throwException.get()) {
+				throw new RuntimeException("Expected exception");
+			}
+
+			// 转移tmp目录下的文件到target目录下
+			ContentDump.move(
+				transaction.tmpContentWriter.getName(),
+				tmpDirectory,
+				targetDirectory);
+
+		}
+
+		/**
+		 * abort，进行回滚操作，把预提交阶段刷写的临时文件删除
+		 */
+		@Override
+		protected void abort(ContentTransaction transaction) {
+			transaction.tmpContentWriter.close();
+			tmpDirectory.delete(transaction.tmpContentWriter.getName());
+		}
+	}
+
+```
+
+
+自定义数据的事务操作类：
+
+```
+    /**
+	 * 事务操作类
+	 */
+	private static class ContentTransaction {
+		private ContentDump.ContentWriter tmpContentWriter;
+
+		public ContentTransaction(ContentDump.ContentWriter tmpContentWriter) {
+			this.tmpContentWriter = tmpContentWriter;
+		}
+
+		@Override
+		public String toString() {
+			return String.format("ContentTransaction[%s]", tmpContentWriter.getName());
+		}
+	}
+	
+```
+
+模拟两阶段提交的过程：
+
+```
+    /**
+	 * 发送element  "42" - 0
+	 * 发送snapshot  0   - 1
+	 * 发送element  "43" - 2
+	 * 发送snapshot  1   - 3
+	 * 发送element  "44" - 4
+	 * 发送snapshot  2   - 5
+	 * <p>
+	 * 测试，通知checkpoint-1完成，那写入到target目录的数据只能是"42","43"
+	 * 此时，在tmp目录下应该有一个checkpoint-2和数据"44"
+	 */
+	@Test
+	public void testNotifyOfCompletedCheckpoint() throws Exception {
+		// 准备工作：initializeEmptyState、打开userFunction、初始化SimpleContext
+		harness.open();
+		harness.processElement("42", 0);
+		harness.snapshot(0, 1);
+		harness.processElement("43", 2);
+		harness.snapshot(1, 3);
+		harness.processElement("44", 4);
+		harness.snapshot(2, 5);
+		harness.notifyOfCompletedCheckpoint(1);
+
+		assertExactlyOnce(Arrays.asList("42", "43"));
+		assertEquals(2, tmpDirectory.listFiles().size()); // one for checkpointId 2 and second for the currentTransaction
+	}
+
+```
+
 
 ### 5.10.3 Apache Bahir中的连接器
 

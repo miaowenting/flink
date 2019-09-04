@@ -25,37 +25,17 @@ import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.java.typeutils.TypeExtractor;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.fs.CloseableRegistry;
-import org.apache.flink.runtime.checkpoint.CheckpointOptions;
-import org.apache.flink.runtime.checkpoint.OperatorStateRepartitioner;
-import org.apache.flink.runtime.checkpoint.OperatorSubtaskState;
-import org.apache.flink.runtime.checkpoint.RoundRobinOperatorStateRepartitioner;
-import org.apache.flink.runtime.checkpoint.StateAssignmentOperation;
-import org.apache.flink.runtime.checkpoint.StateObjectCollection;
-import org.apache.flink.runtime.checkpoint.TaskStateSnapshot;
+import org.apache.flink.runtime.checkpoint.*;
 import org.apache.flink.runtime.execution.Environment;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.operators.testutils.MockEnvironment;
 import org.apache.flink.runtime.operators.testutils.MockEnvironmentBuilder;
 import org.apache.flink.runtime.operators.testutils.MockInputSplitProvider;
-import org.apache.flink.runtime.state.CheckpointStorage;
-import org.apache.flink.runtime.state.CheckpointStorageLocationReference;
-import org.apache.flink.runtime.state.KeyGroupRange;
-import org.apache.flink.runtime.state.KeyedStateHandle;
-import org.apache.flink.runtime.state.OperatorStateHandle;
-import org.apache.flink.runtime.state.StateBackend;
-import org.apache.flink.runtime.state.TestTaskStateManager;
+import org.apache.flink.runtime.state.*;
 import org.apache.flink.runtime.state.memory.MemoryStateBackend;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.graph.StreamConfig;
-import org.apache.flink.streaming.api.operators.AbstractStreamOperator;
-import org.apache.flink.streaming.api.operators.AbstractStreamOperatorTest;
-import org.apache.flink.streaming.api.operators.OperatorSnapshotFinalizer;
-import org.apache.flink.streaming.api.operators.OperatorSnapshotFutures;
-import org.apache.flink.streaming.api.operators.Output;
-import org.apache.flink.streaming.api.operators.SetupableStreamOperator;
-import org.apache.flink.streaming.api.operators.StreamOperator;
-import org.apache.flink.streaming.api.operators.StreamTaskStateInitializer;
-import org.apache.flink.streaming.api.operators.StreamTaskStateInitializerImpl;
+import org.apache.flink.streaming.api.operators.*;
 import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.runtime.streamrecord.LatencyMarker;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
@@ -67,14 +47,7 @@ import org.apache.flink.util.OutputTag;
 import org.apache.flink.util.Preconditions;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
@@ -117,7 +90,7 @@ public class AbstractStreamOperatorTestHarness<OUT> implements AutoCloseable {
 	private final Object checkpointLock;
 
 	private static final OperatorStateRepartitioner operatorStateRepartitioner =
-			RoundRobinOperatorStateRepartitioner.INSTANCE;
+		RoundRobinOperatorStateRepartitioner.INSTANCE;
 
 	/**
 	 * Whether setup() was called on the operator. This is reset when calling close().
@@ -128,10 +101,10 @@ public class AbstractStreamOperatorTestHarness<OUT> implements AutoCloseable {
 	private volatile boolean wasFailedExternally = false;
 
 	public AbstractStreamOperatorTestHarness(
-			StreamOperator<OUT> operator,
-			int maxParallelism,
-			int parallelism,
-			int subtaskIndex) throws Exception {
+		StreamOperator<OUT> operator,
+		int maxParallelism,
+		int parallelism,
+		int subtaskIndex) throws Exception {
 		this(
 			operator,
 			maxParallelism,
@@ -141,11 +114,11 @@ public class AbstractStreamOperatorTestHarness<OUT> implements AutoCloseable {
 	}
 
 	public AbstractStreamOperatorTestHarness(
-			StreamOperator<OUT> operator,
-			int maxParallelism,
-			int parallelism,
-			int subtaskIndex,
-			OperatorID operatorID) throws Exception {
+		StreamOperator<OUT> operator,
+		int maxParallelism,
+		int parallelism,
+		int subtaskIndex,
+		OperatorID operatorID) throws Exception {
 		this(
 			operator,
 			new MockEnvironmentBuilder()
@@ -162,16 +135,16 @@ public class AbstractStreamOperatorTestHarness<OUT> implements AutoCloseable {
 	}
 
 	public AbstractStreamOperatorTestHarness(
-			StreamOperator<OUT> operator,
-			MockEnvironment env) throws Exception {
+		StreamOperator<OUT> operator,
+		MockEnvironment env) throws Exception {
 		this(operator, env, false, new OperatorID());
 	}
 
 	private AbstractStreamOperatorTestHarness(
-			StreamOperator<OUT> operator,
-			MockEnvironment env,
-			boolean environmentIsInternal,
-			OperatorID operatorID) throws Exception {
+		StreamOperator<OUT> operator,
+		MockEnvironment env,
+		boolean environmentIsInternal,
+		OperatorID operatorID) throws Exception {
 		this.operator = operator;
 		this.outputList = new ConcurrentLinkedQueue<>();
 		this.sideOutputLists = new HashMap<>();
@@ -210,6 +183,9 @@ public class AbstractStreamOperatorTestHarness<OUT> implements AutoCloseable {
 			.build();
 	}
 
+	/**
+	 * 创建stream task的状态后台管理类
+	 */
 	protected StreamTaskStateInitializer createStreamTaskStateManager(
 		Environment env,
 		StateBackend stateBackend,
@@ -260,7 +236,7 @@ public class AbstractStreamOperatorTestHarness<OUT> implements AutoCloseable {
 	@SuppressWarnings("unchecked")
 	public List<StreamRecord<? extends OUT>> extractOutputStreamRecords() {
 		List<StreamRecord<? extends OUT>> resultElements = new LinkedList<>();
-		for (Object e: getOutput()) {
+		for (Object e : getOutput()) {
 			if (e instanceof StreamRecord) {
 				resultElements.add((StreamRecord<OUT>) e);
 			}
@@ -294,7 +270,6 @@ public class AbstractStreamOperatorTestHarness<OUT> implements AutoCloseable {
 	 * Calls {@link org.apache.flink.streaming.api.operators.StreamOperator#initializeState()}.
 	 * Calls {@link org.apache.flink.streaming.api.operators.SetupableStreamOperator#setup(StreamTask, StreamConfig, Output)}
 	 * if it was not called before.
-	 *
 	 */
 	public void initializeState(OperatorSubtaskState operatorStateHandles) throws Exception {
 		initializeState(operatorStateHandles, null);

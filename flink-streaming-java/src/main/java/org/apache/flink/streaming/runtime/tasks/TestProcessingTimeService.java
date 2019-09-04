@@ -34,6 +34,8 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * This is a {@link ProcessingTimeService} used <b>strictly for testing</b> the
  * processing time functionality.
+ *
+ * 作为测试用的ProcessingTime的产生类
  * */
 public class TestProcessingTimeService extends ProcessingTimeService {
 
