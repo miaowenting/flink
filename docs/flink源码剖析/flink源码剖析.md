@@ -491,7 +491,7 @@ flink-conf.yaml:
     相关Flink Jar包和相关配置信息（包括keytab等）到HDFS。其中，YARN Client被Flink编译进安装包。
     
 （2）Client 向YARN集群申请AM容器以启动Flink的 JobManager
- 
+
 （3）JobManager 申请容器以启动TaskManager
 
 
@@ -1167,9 +1167,9 @@ KeyedStream 用来表示根据指定的key进行分组的数据流。一个Keyed
 ### 5.7.3 WindowedStream & AllWindowedStream
 
 WindowedStream 代表了根据key分组，并且基于 WindowAssigner 切分窗口的数据流。所以 WindowedStream 是基于 KeyedStream 衍生而来的。而在 WindowedStream上进行任何
- 
+
  transformation 也都将转变回 DataStream。
- 
+
 ```
 
 val stream: DataStream[MyType] = ...
@@ -1454,8 +1454,8 @@ input
   .<windowed transformation>(<window function>)
 
 ```
-    
-    
+
+
 ### 5.8.2 窗口函数
 
 #### 5.8.2.1 reduce函数
@@ -1911,7 +1911,6 @@ DataStream result = input
     
     
     
-    
 - 源码分析
 
 为了扩展 Flink 中的窗口机制，使得能够支持窗口合并，首先 window assigner 要能合并现有的窗口，Flink 增加了一个新的抽象类 MergingWindowAssigner 继承自 WindowAssigner，这里面主要多了一个 mergeWindows 的方法，用来决定哪些窗口是可以合并的。
@@ -2030,7 +2029,7 @@ public void processElement(StreamRecord<IN> element) throws Exception {
 
 其实这段代码写的并不是很clean，并且不是很好理解。在第六行中有用到MergingWindowSet，这个类很重要所以我们先介绍它。这是一个用来跟踪窗口合并的类。比如我们有A、B、C三个窗口需要合并，合并后的窗口为D窗口。这三个窗口在底层都有对应的状态集合，为了避免代价高昂的状态替换（创建新状态是很昂贵的），我们保持其中一个窗口作为原始的状态窗口，其他几个窗口的数据合并到该状态窗口中去，比如随机选择A作为状态窗口，那么B和C窗口中的数据需要合并到A窗口中去。这样就没有新状态产生了，但是我们需要额外维护窗口与状态窗口之间的映射关系（D->A），这就是MergingWindowSet负责的工作。这个映射关系需要在失败重启后能够恢复，所以MergingWindowSet内部也是对该映射关系做了容错。状态合并的工作示意图如下所示：
 
- 
+
  ![avatar](image/session window状态合并的工作示意图.png)
 
 
@@ -2147,7 +2146,7 @@ public void advanceWatermark(long time) throws Exception {
 		}
 	}
 	
-``` 
+```
 
 重新运行输出的结果为：
 
@@ -2255,7 +2254,7 @@ DataStream Plan封装了如何将节点翻译成对应 DataStream/DataSet 程序
 DataStream/DataSet 程序。
 
  ![avatar](image/flink优化过程.png)
- 
+
 
 代码生成是 Table API & SQL 中最核心的一块内容。表达式、条件、内置函数等等是需要CodeGen出具体的Function代码的，这部分跟Spark SQL的结构很相似。CodeGen 出的 Function 
 
@@ -3421,8 +3420,8 @@ GROUP BY DATE_FORMAT(ts, 'yyyy-MM-dd HH:00');
 flink1_9_0_SQL实践提交到集群上：
 
   ![avatar](image/flink1_9_0_SQL实践提交到集群上.png)
-  
-  
+
+
 flink1_9_0_SQL实践输出数据到mysql表：
 
   ![avatar](image/flink1_9_0_SQL实践输出数据到mysql表.png)
@@ -3440,32 +3439,158 @@ flink1_9_0_SQL实践输出数据到mysql表：
 
   ![avatar](image/bundled_connectors.png)
 
+#### 5.10.2.1 Flink Kafka Connector
+
+  - Flink Kafka Consumer
+    
+    + 反序列化数据
+    
+      * 将kafka中二进制数据转化为具体的java、scala对象
+      
+      * DeserializationSchema, T deserialize(byte[] message)
+        
+        - SimpleStringSchema: 按字符串方式进行序列化、反序列化
+        
+        - TypeInformationSerializationSchema: 基于Flink的TypeInformation来创建Schema
+        
+        - JsonDeserializationSchema: 使用jackson反序列化json格式消息，并返回ObjectNode，可以使用.get("property")方法来访问字段
+      
+      * KeyedDeserializationSchema, T deserialize(byte[] messageKey,byte[] message,String topic,int partition,long 
+      offset): 对于访问kafka key/value
+    
+    + 消费起始位置设置
+    
+      * setStartFromGroupOffsets(默认)
+        
+        从kafka记录的group.id的位置开始读取，如果没有根据auto.offset.reset设置
+      
+      * setStartFromEarliest
+      
+        从kafka最早的位置读取
+      
+      * setStartFromLatest
+      
+        从kafka最新数据开始读取
+      
+      * setStartFromTimestamp(long)
+      
+        从时间戳大于或等于指定时间戳的位置开始读取
+      
+      * setStartFromSpecificOffsets
+      
+        从指定的分区的offset位置开始读取，如指定的offsets中不存在某个分区，该分区从group offset位置开始读取
+    
+    + topic partition自动发现
+    
+      原理：内部单独的线程获取kafka meta信息进行更新
+      flink.partition-discovery.interval-millis: 发现时间间隔，默认false，设置非负值开启
+      
+      * 分区发现
+      
+        消费的source kafka topic进行了partition扩容
+        
+        新发现的分区，从earliest位置开始读取
+      
+      * topic发现
+      
+        支持正则表达式描述topic名字
+    
+    + commit offset方式
+    
+      * checkpoint关闭
+      
+        依赖kafka客户端的auto commit定期提交offset
+        
+        需设置enable.auto.commit，auto.commit.interval.ms参数到consumer properties
+      
+      * checkpoint开启
+      
+        offset自己在checkpoint state中管理和容错。提交kafka仅作为外部监视消费进度
+        
+        通过setCommitOffsetsOnCheckpoints控制，checkpoint成功之后，是否提交offset到kafka
+    
+    + 时戳提取/水位生成
+    
+        ![avatar](image/flink_kafka_consumer_时戳提取_水位生成.png)
+        
+  
+  - Flink Kafka Producer
+  
+    + Producer分区
+    
+      * FlinkFixedPartitioner（默认）：parallelInstanceId % partitions.length
+      
+      * Partitioner设置为null：round-robin kafka partitioner
+      
+      * custom partitioner：自定义分区
+    
+    + Producer容错
+    
+      * kafka 0.9 and 0.10
+      
+        - setLogFailuresOnly：默认false，写失败时，是否只打印失败log，不抛异常
+        
+        - setFlushOnCheckpoint：默认true，checkpoint时保证数据写到kafka
+        
+        - at-least-once语义：setLogFailuresOnly：false + setFlushOnCheckpoint：true
+      
+      * kafka 0.11
+      
+        - FlinkKafkaProducer011，两阶段提交Sink结合kafka事务，可以保证端到端精准一次
+        
+        [https://www.ververica.com/blog/end-to-end-exactly-once-processing-apache-flink-apache-kafka]
+
+        `TwoPhaseCommitSinkFunction`
+        
+        预提交阶段从开始注入一个checkpoint barrier开始：
+        
+        ![avatar](image/两阶段提交协议_预提交阶段_开始注入checkpoint_barrier.png)
+        
+        checkpoint barrier从一个operator流入另一个operator，触发operator的状态后端生成状态快照，Data Source 存储的kafka的消费位置：
+        
+        ![avatar](image/两阶段提交协议_预提交阶段_source_Snapshot_offsets.png)
+        
+        Data Sink写入到外部系统kafka，就会包含external state，外部系统必须提供事务支持才行：
+        
+        ![avatar](image/两阶段提交协议_预提交阶段_sink_Snapshot_state_and_Pre-commit.png)
+        
+        当checkpoint barrier流过所有的operators并且触发了所有snapshot生成完毕，代表预提交阶段完成。所有的状态快照都被认为是一次checkpoint
+        的一部分，checkpoint是一个全局状态快照，包括预提交阶段的external state。失败的情况下，可以从上一次成功的checkpoint处恢复。
+        
+        下一步就是通知所有的operators本次checkpoint已经完成了，Data Sink进行真正的提交操作：
+        
+        ![avatar](image/两阶段提交协议_提交阶段.png)
+        
+        这里写入的是kafka这种提供了事务操作的外部系统。假设是写入文件系统，可以在预提交阶段写入一个临时目录的临时文件，在提交阶段再重命名到真实目录的真实文件。
+        
+
+        
 
 ### 5.10.3 Apache Bahir中的连接器
 
   ![avatar](image/Apache_Bahir开源项目中的连接器.png)
 
-### 5.10.1 Async I/O
+### 5.10.4 Async I/O
 
  主要目的是为了解决与外部系统交互时网络延迟成了系统瓶颈的问题。
- 
+
  流计算系统中经常需要与外部系统进行交互，比如需要查询外部数据库以关联上用户的额外信息。同步访问的模式：向数据库发送用户a的查询请求，然后等待返回结果，在这之前，无法发送用户b的查询请求。如下图左边所示：
- 
+
   ![avatar](image/flink中的Sync_IO与Async_IO.png)
 
- 
+
  棕色的长条表示等待时间，可以发现网络等待时间极大地阻碍了吞吐和延迟。为了解决同步访问的问题，异步模式可以并发的处理多个请求和回复。也就是说，可以连续地向数据库发送用户a、b、c等请求，与此同时，哪个请求的回复
- 
+
  先返回了就处理哪个回复，从而连续的请求之间不需要阻塞等待，如上图右边所示。
- 
+
  使用Async I/O的前提是需要一个支持异步请求的客户端。当然，没有异步客户端的话也可以将同步客户端丢到线程池中执行作为异步客户端。
- 
+
  以下代码展示了flink Async I/O 的基本用法：
- 
+
  首先是实现AsyncFunction接口，用于编写异步请求逻辑及将结果或异常设置到resultFuture。
- 
+
  然后使用 AsyncDataStream 的unorderedWait或orderedWait方法将AsyncFunction作用到DataStream。 
- 
+
  ```
 
     /** 'AsyncFunction' 的一个实现，向数据库发送异步请求并设置回调 */
@@ -3523,7 +3648,7 @@ AsyncWaitOperator主要由两部分组成：StreamElementQueue 和 Emitter 。
 实际上 AsyncCollector 是一个 Promise ，也就是 P5，在调用 collect 的时候会标记 Promise 为完成状态，并通知 Emitter 线程有完成的消息可以发送了。
 Emitter 就会从队列中拉取完成的 Promise ，并从 Promise 中取出消息发送给下游。
 
-#### 5.10.1.1 消息的顺序性
+#### 5.10.4.1 消息的顺序性
 
 Async I/O 提供了两种输出模式。细分有三种模式：有序、ProcessingTime无序、EventTime无序。Flink使用队列来实现不同的输出模式，并抽象出一个队列的接口（StreamElementQueue），
 这种分层设计使得AsyncWaitOperator和Emitter不用关心消息的顺序问题。StreamElementQueue有两种具体实现，分别是 OrderedStreamElementQueue 和 UnorderedStreamElementQueue。
@@ -3577,37 +3702,37 @@ Stateful processing
 ### 5.11.1 状态容错（State Fault Tolerance）
 
   ![avatar](image/传统批次处理方法.png)
-  
+
   传统批次处理方法引发的问题，无法处理事件的顺序颠倒：
-  
+
   ![avatar](image/传统批次处理方法引发的问题.png)
-  
+
   理想办法，是一直累计程序运行的状态，一是有能力累计和维护大量的状态，二是有时间机制去判断是否接收到它所有所需要的数据，接着去产生结果：
-  
+
   ![avatar](image/流式处理的理想方法.png)
-  
+
   ![avatar](image/流式处理的理想方法2.png)
 
-  
+
   Global consistent snapshot:
-  
+
   每次产生检查点时，传到公共的存储如HDFS上，容错恢复时重新设定kafka的消费位置
-  
+
   ![avatar](image/分布式状态容错.png)
-  
+
   分布式快照方法，Flink会在一个DataStream中一直安插checkpoint barrier：
-  
+
   ![avatar](image/分布式快照方法.png)
-  
+
   不阻挡运算的情况下，一直产生checkpoint异步快照，并且可以并行产生多个分布式快照，checkpoint n-1、checkpoint n、checkpoint n+1，
-  
+
   以下是分布式快照的生成过程，可以想象成在填充左下角的表格，红色表示checkpoint barrier n应该负责的：
 
   ![avatar](image/分布式快照步骤1.png)
-  
+
   ![avatar](image/分布式快照步骤2.png)
-  
-    
+
+
   checkpoint barrier n跟随数据流动：
 
   ![avatar](image/分布式快照步骤3.png)
@@ -3617,7 +3742,7 @@ Stateful processing
   ![avatar](image/分布式快照步骤5.png)
 
   
-  
+
 ### 5.11.2 状态维护
 
 #### 5.11.2.1 托管的Keyed State
@@ -3783,19 +3908,19 @@ object ExampleCountWindowAverage extends App {
   可以想成：一个手动产生的检查点（Checkpoint）
 
   保存点的作用，在运维上有以下几个重要考量：
-  
+
   - 更改应用逻辑/修bug等，将前一执行的状态迁移到新的执行
   - 重新定义程序的并行度
   - 升级flink集群的版本，如从1.7升级到1.8
-  
+
   ![avatar](image/保存点含义.png)
-  
+
   执行停止之前，产生一个保存点，如可以放JVM钩子函数中执行：
-  
+
   ![avatar](image/手动生成一个保存点.png)
-  
+
   从保存点恢复执行，并且利用EventTime处理赶上最新的数据：
-  
+
   ![avatar](image/从保存点开始恢复应用.png)
 
 
@@ -3899,8 +4024,9 @@ object ExampleCountWindowAverage extends App {
     - 引入Partitioned-ALL-cache支持超大维表 
     - 使用批量请求提高单次IO的吞吐
     - Multi-join优化
-    
-    
+
+
+​    
 
 
 ​    
