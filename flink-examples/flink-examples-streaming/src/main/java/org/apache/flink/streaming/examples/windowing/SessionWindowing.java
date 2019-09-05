@@ -33,6 +33,14 @@ import java.util.List;
 /**
  * An example of session windowing that keys events by ID and groups and counts them in
  * session with gaps of 3 milliseconds.
+ *
+ * 输出结果：
+ * (a,1,1)
+ * (b,1,3)
+ * (c,6,1)
+ * (a,10,1)
+ * (c,11,1)
+ *
  */
 public class SessionWindowing {
 
@@ -59,6 +67,7 @@ public class SessionWindowing {
 
 		input.add(new Tuple3<>("c", 6L, 1));
 
+		//
 		input.add(new Tuple3<>("a", 1L, 2));
 		// We expect to detect the session "a" earlier than this point (the old
 		// functionality can only detect here when the next starts)

@@ -36,6 +36,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 /**
  * An example of grouped stream windowing into sliding time windows.
  * This example uses [[RichParallelSourceFunction]] to generate a list of key-value pairs.
+ * 测试ProcessingTime的slide窗口聚合，统计窗口内，某个数据(0 ~ 10000)产生的次数
  */
 public class GroupedProcessingTimeWindowExample {
 
@@ -48,6 +49,7 @@ public class GroupedProcessingTimeWindowExample {
 
 		stream
 			.keyBy(0)
+			// 窗口为slide窗口，时间属性为ProcessingTime
 			.timeWindow(Time.of(2500, MILLISECONDS), Time.of(500, MILLISECONDS))
 			.reduce(new SummingReducer())
 
@@ -59,6 +61,7 @@ public class GroupedProcessingTimeWindowExample {
 			.addSink(new SinkFunction<Tuple2<Long, Long>>() {
 				@Override
 				public void invoke(Tuple2<Long, Long> value) {
+					System.out.println(value);
 				}
 			});
 
@@ -100,6 +103,9 @@ public class GroupedProcessingTimeWindowExample {
 	 */
 	private static class DataSource extends RichParallelSourceFunction<Tuple2<Long, Long>> {
 
+		/**
+		 * 使用volatile变量来标记和控制执行的状态
+		 */
 		private volatile boolean running = true;
 
 		@Override
@@ -112,11 +118,14 @@ public class GroupedProcessingTimeWindowExample {
 			long val = 1L;
 			long count = 0L;
 
+			// 大部分情况在run()方法里运行while循环的形式来产生stream
 			while (running && count < numElements) {
 				count++;
+				// key从1递增，value固定为1
 				ctx.collect(new Tuple2<>(val++, 1L));
 
 				if (val > numKeys) {
+					// 大于10000后重新从1开始
 					val = 1L;
 				}
 			}
