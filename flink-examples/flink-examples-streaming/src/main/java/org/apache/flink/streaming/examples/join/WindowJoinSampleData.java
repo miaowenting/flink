@@ -41,6 +41,7 @@ public class WindowJoinSampleData {
 
 	/**
 	 * Continuously generates (name, grade).
+	 * 年级数据源迭代器
 	 */
 	public static class GradeSource implements Iterator<Tuple2<String, Integer>>, Serializable {
 
@@ -62,6 +63,7 @@ public class WindowJoinSampleData {
 		}
 
 		public static DataStream<Tuple2<String, Integer>> getSource(StreamExecutionEnvironment env, long rate) {
+			// 从一个迭代器中创建数据流，指定该迭代器返回的类型
 			return env.fromCollection(new ThrottledIterator<>(new GradeSource(), rate),
 					TypeInformation.of(new TypeHint<Tuple2<String, Integer>>(){}));
 		}
@@ -69,6 +71,7 @@ public class WindowJoinSampleData {
 
 	/**
 	 * Continuously generates (name, salary).
+	 * 工资数据源迭代器
 	 */
 	public static class SalarySource implements Iterator<Tuple2<String, Integer>>, Serializable {
 
