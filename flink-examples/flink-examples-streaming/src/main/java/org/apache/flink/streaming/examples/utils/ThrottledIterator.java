@@ -26,6 +26,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * A variant of the collection source (emits a sequence of elements as a stream)
  * that supports throttling the emission rate.
+ * 节流的数据源迭代器
  * @param <T>
  */
 public class ThrottledIterator<T> implements Iterator<T>, Serializable {

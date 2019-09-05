@@ -48,7 +48,8 @@ public class SocketWindowWordCount {
 		try {
 			final ParameterTool params = ParameterTool.fromArgs(args);
 			hostname = params.has("hostname") ? params.get("hostname") : "localhost";
-			port = params.getInt("port");
+//			port = params.getInt("port");
+			port = 9999;
 		} catch (Exception e) {
 			System.err.println("No port specified. Please run 'SocketWindowWordCount " +
 				"--hostname <hostname> --port <port>', where hostname (localhost by default) " +
@@ -62,29 +63,32 @@ public class SocketWindowWordCount {
 		final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
 		// get input data by connecting to the socket
+		// 数据来源是从socket读取，元素可以用分隔符切分
 		DataStream<String> text = env.socketTextStream(hostname, port, "\n");
 
 		// parse the data, group it, window it, and aggregate the counts
 		DataStream<WordWithCount> windowCounts = text
 
-				.flatMap(new FlatMapFunction<String, WordWithCount>() {
-					@Override
-					public void flatMap(String value, Collector<WordWithCount> out) {
-						for (String word : value.split("\\s")) {
-							out.collect(new WordWithCount(word, 1L));
-						}
+			.flatMap(new FlatMapFunction<String, WordWithCount>() {
+				@Override
+				public void flatMap(String value, Collector<WordWithCount> out) {
+					for (String word : value.split("\\s")) {
+						out.collect(new WordWithCount(word, 1L));
 					}
-				})
+				}
+			})
 
-				.keyBy("word")
-				.timeWindow(Time.seconds(5))
+			.keyBy("word")
+			.timeWindow(Time.seconds(5))
 
-				.reduce(new ReduceFunction<WordWithCount>() {
-					@Override
-					public WordWithCount reduce(WordWithCount a, WordWithCount b) {
-						return new WordWithCount(a.word, a.count + b.count);
-					}
-				});
+			.reduce(new ReduceFunction<WordWithCount>() {
+				// 统计单词个数
+				// reduce返回单个的结果值，并且reduce每处理一个元素总是创建一个新值。常用的average,sum,min,max,count,使用reduce方法都可以实现
+				@Override
+				public WordWithCount reduce(WordWithCount a, WordWithCount b) {
+					return new WordWithCount(a.word, a.count + b.count);
+				}
+			});
 
 		// print the results with a single thread, rather than in parallel
 		windowCounts.print().setParallelism(1);
@@ -102,7 +106,8 @@ public class SocketWindowWordCount {
 		public String word;
 		public long count;
 
-		public WordWithCount() {}
+		public WordWithCount() {
+		}
 
 		public WordWithCount(String word, long count) {
 			this.word = word;
