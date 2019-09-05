@@ -169,7 +169,7 @@ public abstract class TypeInformation<T> implements Serializable {
 	/**
 	 * Creates a serializer for the type. The serializer may use the ExecutionConfig
 	 * for parameterization.
-	 *
+	 * 为数据类型创建序列化器
 	 * @param config The config used to parameterize the serializer.
 	 * @return A serializer for this type.
 	 */

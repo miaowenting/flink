@@ -269,14 +269,14 @@ public class InternalTimerServiceImpl<K, N> implements InternalTimerService<N>, 
 
 	public void advanceWatermark(long time) throws Exception {
 		// 打印增量watermark
-		System.out.println(String.format("Advanced watermark %s", time));
+//		System.out.println(String.format("Advanced watermark %s", time));
 		currentWatermark = time;
 
 		InternalTimer<K, N> timer;
 
 		while ((timer = eventTimeTimersQueue.peek()) != null && timer.getTimestamp() <= time) {
 			// 打印触发时的timer
-			System.out.println(timer);
+//			System.out.println(timer);
 			eventTimeTimersQueue.poll();
 			keyContext.setCurrentKey(timer.getKey());
 			triggerTarget.onEventTime(timer);
