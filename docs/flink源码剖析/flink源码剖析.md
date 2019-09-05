@@ -2173,26 +2173,33 @@ public void advanceWatermark(long time) throws Exception {
 	
 ```
 
-重新运行输出的结果为：
+重新运行输出的结果为，watermark大于窗口结束时间触发窗口计算：
 
 ```
 Advanced watermark 0
 Advanced watermark 2
 Advanced watermark 4
+# watermark 4 = a 窗口的结束时间4，所以触发a计算输出
 Timer{timestamp=3, key=(a), namespace=TimeWindow{start=1, end=4}}
 (a,1,1)
 Advanced watermark 5
 Advanced watermark 9
+# (b,1,1)、(b,3,1)、b(b,5,1)，这3条数据会进行窗口合并，所以这里的结束时间是8
+# watermark 9 > b 窗口的结束时间8，所以触发b计算输出
 Timer{timestamp=7, key=(b), namespace=TimeWindow{start=1, end=8}}
 (b,1,3)
+# watermark 9 = c 窗口的结束时间9，所以触发c计算输出
 Timer{timestamp=8, key=(c), namespace=TimeWindow{start=6, end=9}}
 (c,6,1)
 Advanced watermark 10
 Advanced watermark 9223372036854775807
+# watermark 9223372036854775807 > a 窗口的结束时间13，所以触发a计算输出
 Timer{timestamp=12, key=(a), namespace=TimeWindow{start=10, end=13}}
 (a,10,1)
+# watermark 9223372036854775807 > c 窗口的结束时间14，所以触发c计算输出
 Timer{timestamp=13, key=(c), namespace=TimeWindow{start=11, end=14}}
 (c,11,1)
+
 ```
 
 
