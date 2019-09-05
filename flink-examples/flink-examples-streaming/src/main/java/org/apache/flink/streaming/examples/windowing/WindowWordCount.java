@@ -39,6 +39,24 @@ import org.apache.flink.streaming.examples.wordcount.util.WordCountData;
  * <li>use tuple data types,
  * <li>use basic windowing abstractions.
  * </ul>
+ *
+ * 3> (sleep,5)
+ * 7> (of,5)
+ * 8> (and,5)
+ * 5> (the,5)
+ * 6> (to,5)
+ * 6> (to,10)
+ * 5> (the,10)
+ * 7> (of,10)
+ * 5> (the,10)
+ * 6> (to,10)
+ * 6> (a,5)
+ * 5> (s,5)
+ * 7> (of,10)
+ * 5> (the,10)
+ * 8> (and,10)
+ * 5> (that,5)
+ *
  */
 public class WindowWordCount {
 
@@ -76,6 +94,7 @@ public class WindowWordCount {
 		text.flatMap(new WordCount.Tokenizer())
 				// create windows of windowSize records slided every slideSize records
 				.keyBy(0)
+			    // count window，窗口中最多容纳10个相同的单词
 				.countWindow(windowSize, slideSize)
 				// group by the tuple field "0" and sum up tuple field "1"
 				.sum(1);

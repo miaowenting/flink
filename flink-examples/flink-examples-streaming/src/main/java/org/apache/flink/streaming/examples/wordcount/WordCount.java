@@ -41,6 +41,8 @@ import org.apache.flink.util.Collector;
  * <li>use tuple data types,
  * <li>write and use user-defined functions.
  * </ul>
+ *
+ * 实时统计单词数量，每来一个计算一次并输出一次
  */
 public class WordCount {
 
