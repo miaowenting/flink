@@ -72,6 +72,7 @@ public class SlidingEventTimeWindows extends WindowAssigner<Object, TimeWindow> 
 			for (long start = lastStart;
 				start > timestamp - size;
 				start -= slide) {
+				// 这里会assign多个TimeWindow，因为是slide
 				windows.add(new TimeWindow(start, start + size));
 			}
 			return windows;

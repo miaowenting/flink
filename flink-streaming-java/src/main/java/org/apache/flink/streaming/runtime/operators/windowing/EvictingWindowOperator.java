@@ -53,6 +53,8 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * {@link InternalWindowFunction} and after the window evaluation gets triggered by a
  * {@link org.apache.flink.streaming.api.windowing.triggers.Trigger}.
  *
+ * 一旦把window指定Evictor，该window会由EvictWindowOperator来负责操作
+ *
  * @param <K> The type of key returned by the {@code KeySelector}.
  * @param <IN> The type of the incoming elements.
  * @param <OUT> The type of elements emitted by the {@code InternalWindowFunction}.
@@ -345,6 +347,8 @@ public class EvictingWindowOperator<K, IN, OUT, W extends Window>
 					return TimestampedValue.from(input);
 				}
 			});
+
+		// 后续处理逻辑之前调用evictBefore
 		evictorContext.evictBefore(recordsWithTimestamp, Iterables.size(recordsWithTimestamp));
 
 		FluentIterable<IN> projectedContents = recordsWithTimestamp
@@ -356,7 +360,11 @@ public class EvictingWindowOperator<K, IN, OUT, W extends Window>
 			});
 
 		processContext.window = triggerContext.window;
+
+		// 后续处理逻辑
 		userFunction.process(triggerContext.key, triggerContext.window, processContext, projectedContents, timestampedCollector);
+
+		// 后续处理逻辑之后调用evictAfter
 		evictorContext.evictAfter(recordsWithTimestamp, Iterables.size(recordsWithTimestamp));
 
 		//work around to fix FLINK-4369, remove the evicted elements from the windowState.

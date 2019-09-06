@@ -37,6 +37,9 @@ public class TimestampsAndPeriodicWatermarksOperator<T>
 
 	private static final long serialVersionUID = 1L;
 
+	/**
+	 * watermark生成间隔
+	 */
 	private transient long watermarkInterval;
 
 	private transient long currentWatermark;
@@ -55,15 +58,18 @@ public class TimestampsAndPeriodicWatermarksOperator<T>
 
 		if (watermarkInterval > 0) {
 			long now = getProcessingTimeService().getCurrentProcessingTime();
+			// 注册到定时器
 			getProcessingTimeService().registerTimer(now + watermarkInterval, this);
 		}
 	}
 
 	@Override
 	public void processElement(StreamRecord<T> element) throws Exception {
+		// 由element中基于AssignerWithPeriodicWatermarks提取时间戳
 		final long newTimestamp = userFunction.extractTimestamp(element.getValue(),
 				element.hasTimestamp() ? element.getTimestamp() : Long.MIN_VALUE);
 
+		// 更新element时间戳，再次发出
 		output.collect(element.replace(element.getValue(), newTimestamp));
 	}
 
@@ -92,6 +98,7 @@ public class TimestampsAndPeriodicWatermarksOperator<T>
 		// to signal the end of input and to not block watermark progress downstream
 		if (mark.getTimestamp() == Long.MAX_VALUE && currentWatermark != Long.MAX_VALUE) {
 			currentWatermark = Long.MAX_VALUE;
+			// forward watermark
 			output.emitWatermark(mark);
 		}
 	}

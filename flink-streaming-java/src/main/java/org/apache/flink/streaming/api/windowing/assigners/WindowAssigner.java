@@ -37,6 +37,7 @@ import java.util.Collection;
  * {@link org.apache.flink.streaming.api.functions.windowing.WindowFunction} is applied
  * to produce output elements for that pane.
  *
+ * 用于指定一个tuple应该被分配到哪些windows去
  * @param <T> The type of elements that this WindowAssigner can assign windows to.
  * @param <W> The type of {@code Window} that this assigner assigns.
  */
@@ -46,6 +47,8 @@ public abstract class WindowAssigner<T, W extends Window> implements Serializabl
 
 	/**
 	 * Returns a {@code Collection} of windows that should be assigned to the element.
+	 *
+	 * 为一个element，分配一组windows
 	 *
 	 * @param element The element to which windows should be assigned.
 	 * @param timestamp The timestamp of the element.

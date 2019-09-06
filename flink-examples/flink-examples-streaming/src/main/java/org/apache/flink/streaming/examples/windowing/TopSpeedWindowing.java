@@ -41,6 +41,8 @@ import java.util.concurrent.TimeUnit;
  * containing their id, their current speed (kmh), overall elapsed distance (m)
  * and a timestamp. The streaming example triggers the top speed of each car
  * every x meters elapsed for the last y seconds.
+ * <p>
+ * 车辆每行驶50m，输出车辆前10s内的最大车速
  */
 public class TopSpeedWindowing {
 
@@ -69,22 +71,28 @@ public class TopSpeedWindowing {
 		int evictionSec = 10;
 		double triggerMeters = 50;
 		DataStream<Tuple4<Integer, Integer, Double, Long>> topSpeeds = carData
-				.assignTimestampsAndWatermarks(new CarTimestamp())
-				.keyBy(0)
-				.window(GlobalWindows.create())
-				.evictor(TimeEvictor.of(Time.of(evictionSec, TimeUnit.SECONDS)))
-				.trigger(DeltaTrigger.of(triggerMeters,
-						new DeltaFunction<Tuple4<Integer, Integer, Double, Long>>() {
-							private static final long serialVersionUID = 1L;
+			// timestamp分配器也定义了用来发射的watermark
+			// timestamp和watermark都是通过时间戳来指定的
+			// watermark只有在window的情况才用到，所以在window operator前加上assignTimestampsAndWatermarks即可
+			.assignTimestampsAndWatermarks(new CarTimestamp())
+			.keyBy(0)
+			.window(GlobalWindows.create())
+			// 时间窗口为10s
+			.evictor(TimeEvictor.of(Time.of(evictionSec, TimeUnit.SECONDS)))
+			// 每50m进行一次触发
+			.trigger(DeltaTrigger.of(triggerMeters,
+				new DeltaFunction<Tuple4<Integer, Integer, Double, Long>>() {
+					private static final long serialVersionUID = 1L;
 
-							@Override
-							public double getDelta(
-									Tuple4<Integer, Integer, Double, Long> oldDataPoint,
-									Tuple4<Integer, Integer, Double, Long> newDataPoint) {
-								return newDataPoint.f2 - oldDataPoint.f2;
-							}
-						}, carData.getType().createSerializer(env.getConfig())))
-				.maxBy(1);
+					@Override
+					public double getDelta(
+						Tuple4<Integer, Integer, Double, Long> oldDataPoint,
+						Tuple4<Integer, Integer, Double, Long> newDataPoint) {
+						return newDataPoint.f2 - oldDataPoint.f2;
+					}
+				}, carData.getType().createSerializer(env.getConfig())))
+			// 取窗口中的最大值
+			.maxBy(1);
 
 		if (params.has("output")) {
 			topSpeeds.writeAsText(params.get("output"));
@@ -103,7 +111,13 @@ public class TopSpeedWindowing {
 	private static class CarSource implements SourceFunction<Tuple4<Integer, Integer, Double, Long>> {
 
 		private static final long serialVersionUID = 1L;
+		/**
+		 * current speed (kmh)
+		 */
 		private Integer[] speeds;
+		/**
+		 * overall elapsed distance (m)
+		 */
 		private Double[] distances;
 
 		private Random rand = new Random();
@@ -121,6 +135,12 @@ public class TopSpeedWindowing {
 			return new CarSource(cars);
 		}
 
+		/**
+		 * 0 carId
+		 * 1 speed
+		 * 2 distance
+		 * 3 timestamp
+		 */
 		@Override
 		public void run(SourceContext<Tuple4<Integer, Integer, Double, Long>> ctx) throws Exception {
 
@@ -134,7 +154,7 @@ public class TopSpeedWindowing {
 					}
 					distances[carId] += speeds[carId] / 3.6d;
 					Tuple4<Integer, Integer, Double, Long> record = new Tuple4<>(carId,
-							speeds[carId], distances[carId], System.currentTimeMillis());
+						speeds[carId], distances[carId], System.currentTimeMillis());
 					ctx.collect(record);
 				}
 			}
@@ -157,11 +177,15 @@ public class TopSpeedWindowing {
 		}
 	}
 
+	/**
+	 * 事件时间戳抽取器
+	 */
 	private static class CarTimestamp extends AscendingTimestampExtractor<Tuple4<Integer, Integer, Double, Long>> {
 		private static final long serialVersionUID = 1L;
 
 		@Override
 		public long extractAscendingTimestamp(Tuple4<Integer, Integer, Double, Long> element) {
+			// 抽取事件中的某些时间戳字段
 			return element.f3;
 		}
 	}

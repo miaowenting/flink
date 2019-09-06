@@ -61,6 +61,7 @@ public class TumblingProcessingTimeWindows extends WindowAssigner<Object, TimeWi
 	public Collection<TimeWindow> assignWindows(Object element, long timestamp, WindowAssignerContext context) {
 		final long now = context.getCurrentProcessingTime();
 		long start = TimeWindow.getWindowStartWithOffset(now, offset, size);
+		// 很简单，分配一个TimeWindow
 		return Collections.singletonList(new TimeWindow(start, start + size));
 	}
 
@@ -70,6 +71,7 @@ public class TumblingProcessingTimeWindows extends WindowAssigner<Object, TimeWi
 
 	@Override
 	public Trigger<Object, TimeWindow> getDefaultTrigger(StreamExecutionEnvironment env) {
+		// 默认给出的是ProcessingTimeTrigger
 		return ProcessingTimeTrigger.create();
 	}
 

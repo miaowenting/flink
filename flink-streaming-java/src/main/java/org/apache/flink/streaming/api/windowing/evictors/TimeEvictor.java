@@ -37,6 +37,9 @@ import java.util.Iterator;
 public class TimeEvictor<W extends Window> implements Evictor<Object, W> {
 	private static final long serialVersionUID = 1L;
 
+	/**
+	 * 代表窗口大小的时间毫秒值
+	 */
 	private final long windowSize;
 	private final boolean doEvictAfter;
 
@@ -66,14 +69,18 @@ public class TimeEvictor<W extends Window> implements Evictor<Object, W> {
 
 	private void evict(Iterable<TimestampedValue<Object>> elements, int size, EvictorContext ctx) {
 		if (!hasTimestamp(elements)) {
+			// 如果element没有timestamp，直接返回
 			return;
 		}
 
+		// 获取elements中最大的时间戳（到来最晚的元素的时间）
 		long currentTime = getMaxTimestamp(elements);
+		// 截止时间为： 到来最晚的元素的时间 - 窗口大小（可以理解为保留最近的多久的元素）
 		long evictCutoff = currentTime - windowSize;
 
 		for (Iterator<TimestampedValue<Object>> iterator = elements.iterator(); iterator.hasNext(); ) {
 			TimestampedValue<Object> record = iterator.next();
+			// 清除所有时间戳小于截止时间的元素
 			if (record.getTimestamp() <= evictCutoff) {
 				iterator.remove();
 			}
@@ -82,7 +89,7 @@ public class TimeEvictor<W extends Window> implements Evictor<Object, W> {
 
 	/**
 	 * Returns true if the first element in the Iterable of {@link TimestampedValue} has a timestamp.
-     */
+	 */
 	private boolean hasTimestamp(Iterable<TimestampedValue<Object>> elements) {
 		Iterator<TimestampedValue<Object>> it = elements.iterator();
 		if (it.hasNext()) {
@@ -92,12 +99,14 @@ public class TimeEvictor<W extends Window> implements Evictor<Object, W> {
 	}
 
 	/**
+	 * 查找拥有最大时间戳的元素max_ts
+	 *
 	 * @param elements The elements currently in the pane.
 	 * @return The maximum value of timestamp among the elements.
-     */
+	 */
 	private long getMaxTimestamp(Iterable<TimestampedValue<Object>> elements) {
 		long currentTime = Long.MIN_VALUE;
-		for (Iterator<TimestampedValue<Object>> iterator = elements.iterator(); iterator.hasNext();){
+		for (Iterator<TimestampedValue<Object>> iterator = elements.iterator(); iterator.hasNext(); ) {
 			TimestampedValue<Object> record = iterator.next();
 			currentTime = Math.max(currentTime, record.getTimestamp());
 		}
@@ -128,9 +137,9 @@ public class TimeEvictor<W extends Window> implements Evictor<Object, W> {
 	 * Creates a {@code TimeEvictor} that keeps the given number of elements.
 	 * Eviction is done before/after the window function based on the value of doEvictAfter.
 	 *
-	 * @param windowSize The amount of time for which to keep elements.
+	 * @param windowSize   The amount of time for which to keep elements.
 	 * @param doEvictAfter Whether eviction is done after window function.
-     */
+	 */
 	public static <W extends Window> TimeEvictor<W> of(Time windowSize, boolean doEvictAfter) {
 		return new TimeEvictor<>(windowSize.toMilliseconds(), doEvictAfter);
 	}

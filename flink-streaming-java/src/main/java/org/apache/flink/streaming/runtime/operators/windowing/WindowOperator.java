@@ -128,6 +128,7 @@ public class WindowOperator<K, IN, ACC, OUT, W extends Window>
 	 *     <li>Clearing the state of a window if the system time passes the
 	 *         {@code window.maxTimestamp + allowedLateness} landmark.
 	 * </ul>
+	 * 允许late多久，即当watermark已经触发后
 	 */
 	protected final long allowedLateness;
 
@@ -168,6 +169,9 @@ public class WindowOperator<K, IN, ACC, OUT, W extends Window>
 
 	protected transient WindowContext processContext;
 
+	/**
+	 * 只为获取getCurrentProcessingTime
+	 */
 	protected transient WindowAssigner.WindowAssignerContext windowAssignerContext;
 
 	// ------------------------------------------------------------------------
@@ -292,6 +296,7 @@ public class WindowOperator<K, IN, ACC, OUT, W extends Window>
 
 	@Override
 	public void processElement(StreamRecord<IN> element) throws Exception {
+		// 通过WindowAssigner为element分配一系列windows
 		final Collection<W> elementWindows = windowAssigner.assignWindows(
 			element.getValue(), element.getTimestamp(), windowAssignerContext);
 
@@ -393,8 +398,9 @@ public class WindowOperator<K, IN, ACC, OUT, W extends Window>
 				}
 				isSkippedElement = false;
 
-				// 记录窗口状态，保证数据一致性
+				// 从backend中取出该window的状态，就是buffer的element
 				windowState.setCurrentNamespace(window);
+				// 把当前的element加入buffer state
 				windowState.add(element.getValue());
 
 				triggerContext.key = key;
@@ -407,10 +413,12 @@ public class WindowOperator<K, IN, ACC, OUT, W extends Window>
 					if (contents == null) {
 						continue;
 					}
+					// 如果fire，真正去计算窗口中的elements
 					emitWindowContents(window, contents);
 				}
 
 				if (triggerResult.isPurge()) {
+					// 如果purge，则去cleanup elements
 					windowState.clear();
 				}
 				registerCleanupTimer(window);

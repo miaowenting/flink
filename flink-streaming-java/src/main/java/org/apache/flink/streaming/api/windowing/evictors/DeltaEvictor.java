@@ -70,9 +70,12 @@ public class DeltaEvictor<T, W extends Window> implements Evictor<T, W> {
 	}
 
 	private void evict(Iterable<TimestampedValue<T>> elements, int size, EvictorContext ctx) {
+		// 获取最后一个元素
 		TimestampedValue<T> lastElement = Iterables.getLast(elements);
+
 		for (Iterator<TimestampedValue<T>> iterator = elements.iterator(); iterator.hasNext();){
 			TimestampedValue<T> element = iterator.next();
+			// 计算窗口缓冲区中最后一个元素与其余元素之间的差值，并删除Delta大于或等于阈值的值
 			if (deltaFunction.getDelta(element.getValue(), lastElement.getValue()) >= this.threshold) {
 				iterator.remove();
 			}

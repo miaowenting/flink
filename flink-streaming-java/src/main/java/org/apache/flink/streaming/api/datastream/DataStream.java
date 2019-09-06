@@ -889,6 +889,7 @@ public class DataStream<T> {
 		final int inputParallelism = getTransformation().getParallelism();
 		final AssignerWithPeriodicWatermarks<T> cleanedAssigner = clean(timestampAndWatermarkAssigner);
 
+		// 加了个chain的TimestampsAndPeriodicWatermarksOperator，periodic watermark
 		TimestampsAndPeriodicWatermarksOperator<T> operator =
 				new TimestampsAndPeriodicWatermarksOperator<>(cleanedAssigner);
 

@@ -27,6 +27,7 @@ import java.util.Iterator;
 /**
  * An {@link Evictor} that keeps up to a certain amount of elements.
  *
+ * 保持窗口中用户指定数量的元素，并从窗口缓冲区的开头丢弃剩余的元素
  * @param <W> The type of {@link Window Windows} on which this {@code Evictor} can operate.
  */
 @PublicEvolving
@@ -46,6 +47,14 @@ public class CountEvictor<W extends Window> implements Evictor<Object, W> {
 		this.doEvictAfter = false;
 	}
 
+	/**
+	 * 移除窗口元素，在Window Function之前调用
+	 *
+	 * @param elements The elements currently in the pane. 当前窗口中的元素
+	 * @param size     The current number of elements in the pane. 当前窗口中的元素数量
+	 * @param window   The {@link Window} 当前窗口
+	 * @param ctx      evict的上下文
+	 */
 	@Override
 	public void evictBefore(Iterable<TimestampedValue<Object>> elements, int size, W window, EvictorContext ctx) {
 		if (!doEvictAfter) {
@@ -53,6 +62,9 @@ public class CountEvictor<W extends Window> implements Evictor<Object, W> {
 		}
 	}
 
+	/**
+	 * 移除窗口元素，在Window Function之后调用
+	 */
 	@Override
 	public void evictAfter(Iterable<TimestampedValue<Object>> elements, int size, W window, EvictorContext ctx) {
 		if (doEvictAfter) {
@@ -62,15 +74,17 @@ public class CountEvictor<W extends Window> implements Evictor<Object, W> {
 
 	private void evict(Iterable<TimestampedValue<Object>> elements, int size, EvictorContext ctx) {
 		if (size <= maxCount) {
+			// 没达到窗口大小，直接返回
 			return;
 		} else {
 			int evictedCount = 0;
-			for (Iterator<TimestampedValue<Object>> iterator = elements.iterator(); iterator.hasNext();){
+			for (Iterator<TimestampedValue<Object>> iterator = elements.iterator(); iterator.hasNext(); ) {
 				iterator.next();
 				evictedCount++;
 				if (evictedCount > size - maxCount) {
 					break;
 				} else {
+					// 移除前size - maxCount个元素，只剩下最后maxCount个元素
 					iterator.remove();
 				}
 			}
@@ -91,9 +105,9 @@ public class CountEvictor<W extends Window> implements Evictor<Object, W> {
 	 * Creates a {@code CountEvictor} that keeps the given number of elements in the pane
 	 * Eviction is done before/after the window function based on the value of doEvictAfter.
 	 *
-	 * @param maxCount The number of elements to keep in the pane.
+	 * @param maxCount     The number of elements to keep in the pane.
 	 * @param doEvictAfter Whether to do eviction after the window function.
-     */
+	 */
 	public static <W extends Window> CountEvictor<W> of(long maxCount, boolean doEvictAfter) {
 		return new CountEvictor<>(maxCount, doEvictAfter);
 	}
