@@ -38,6 +38,7 @@ import java.util.List;
 
 /**
  * A shim layer to support different versions of Hive.
+ * 间隙层，支持不同的hive版本，目前支持的hive版本为 2.3.4 和 1.2.1
  */
 public interface HiveShim {
 

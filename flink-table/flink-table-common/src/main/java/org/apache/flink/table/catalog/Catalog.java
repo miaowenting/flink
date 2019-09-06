@@ -42,6 +42,10 @@ import java.util.Optional;
 /**
  * This interface is responsible for reading and writing metadata such as database/table/views/UDFs
  * from a registered catalog. It connects a registered catalog and Flink's Table API.
+ *
+ * 支持数据库、表、分区等多种元数据对象
+ * 允许用户在一个session中维护多个Catalog实例，从而同时访问多个外部系统
+ * 并且Catalog以可插拔的方式接入Flink，允许用户提供自定义的实现
  */
 @PublicEvolving
 public interface Catalog {

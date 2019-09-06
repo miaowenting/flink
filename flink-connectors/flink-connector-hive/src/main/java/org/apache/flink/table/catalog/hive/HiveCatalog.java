@@ -105,23 +105,32 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
  * A catalog implementation for Hive.
+ *
+ * 会与一个 Hive MetaStore 实例相连，提供元数据持久化的能力
+ * HiveCatalog仅将 Hive MetaStore 作为持久化存储使用，HiveCatalog 也可以用来处理 Flink 自身的元数据
  */
 public class HiveCatalog extends AbstractCatalog {
-	// Default database of Hive metastore
+	/**
+	 * Default database of Hive metastore
+	 */
 	public static final String DEFAULT_DB = "default";
 
 	private static final Logger LOG = LoggerFactory.getLogger(HiveCatalog.class);
 	private static final StorageFormatFactory storageFormatFactory = new StorageFormatFactory();
 	private static final String DEFAULT_HIVE_TABLE_STORAGE_FORMAT = "TextFile";
 
-	// Prefix used to distinguish Flink functions from Hive functions.
-	// It's appended to Flink function's class name
-	// because Hive's Function object doesn't have properties or other place to store the flag for Flink functions.
+	/** Prefix used to distinguish Flink functions from Hive functions.
+	 * It's appended to Flink function's class name
+	 * because Hive's Function object doesn't have properties or other place to store the flag for Flink functions.
+	 */
 	private static final String FLINK_FUNCTION_PREFIX = "flink:";
 
 	private final HiveConf hiveConf;
 	private final String hiveVersion;
 
+	/**
+	 * 内部支持不同版本的 Hive MetaStore
+	 */
 	private HiveMetastoreClientWrapper client;
 
 	public HiveCatalog(String catalogName, @Nullable String defaultDatabase, @Nullable String hiveConfDir, String hiveVersion) {
@@ -174,6 +183,7 @@ public class HiveCatalog extends AbstractCatalog {
 	@Override
 	public void open() throws CatalogException {
 		if (client == null) {
+			// 根据hive版本创建HiveMetastoreClientWrapper
 			client = HiveMetastoreClientFactory.create(hiveConf, hiveVersion);
 			LOG.info("Connected to Hive metastore");
 		}
@@ -213,7 +223,7 @@ public class HiveCatalog extends AbstractCatalog {
 
 	@Override
 	public void createDatabase(String databaseName, CatalogDatabase database, boolean ignoreIfExists)
-			throws DatabaseAlreadyExistException, CatalogException {
+		throws DatabaseAlreadyExistException, CatalogException {
 		checkArgument(!StringUtils.isNullOrWhitespaceOnly(databaseName), "databaseName cannot be null or empty");
 		checkNotNull(database, "database cannot be null");
 
@@ -246,7 +256,7 @@ public class HiveCatalog extends AbstractCatalog {
 
 	@Override
 	public void alterDatabase(String databaseName, CatalogDatabase newDatabase, boolean ignoreIfNotExists)
-			throws DatabaseNotExistException, CatalogException {
+		throws DatabaseNotExistException, CatalogException {
 		checkArgument(!StringUtils.isNullOrWhitespaceOnly(databaseName), "databaseName cannot be null or empty");
 		checkNotNull(newDatabase, "newDatabase cannot be null");
 
@@ -292,7 +302,7 @@ public class HiveCatalog extends AbstractCatalog {
 
 	@Override
 	public void dropDatabase(String name, boolean ignoreIfNotExists) throws DatabaseNotExistException,
-			DatabaseNotEmptyException, CatalogException {
+		DatabaseNotEmptyException, CatalogException {
 		try {
 			client.dropDatabase(name, true, ignoreIfNotExists);
 		} catch (NoSuchObjectException e) {
@@ -329,7 +339,7 @@ public class HiveCatalog extends AbstractCatalog {
 
 	@Override
 	public void createTable(ObjectPath tablePath, CatalogBaseTable table, boolean ignoreIfExists)
-			throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
+		throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
 		checkNotNull(tablePath, "tablePath cannot be null");
 		checkNotNull(table, "table cannot be null");
 
@@ -352,7 +362,7 @@ public class HiveCatalog extends AbstractCatalog {
 
 	@Override
 	public void renameTable(ObjectPath tablePath, String newTableName, boolean ignoreIfNotExists)
-			throws TableNotExistException, TableAlreadyExistException, CatalogException {
+		throws TableNotExistException, TableAlreadyExistException, CatalogException {
 		checkNotNull(tablePath, "tablePath cannot be null");
 		checkArgument(!StringUtils.isNullOrWhitespaceOnly(newTableName), "newTableName cannot be null or empty");
 
@@ -381,7 +391,7 @@ public class HiveCatalog extends AbstractCatalog {
 
 	@Override
 	public void alterTable(ObjectPath tablePath, CatalogBaseTable newCatalogTable, boolean ignoreIfNotExists)
-			throws TableNotExistException, CatalogException {
+		throws TableNotExistException, CatalogException {
 		checkNotNull(tablePath, "tablePath cannot be null");
 		checkNotNull(newCatalogTable, "newCatalogTable cannot be null");
 
@@ -509,14 +519,14 @@ public class HiveCatalog extends AbstractCatalog {
 		// Table schema
 		List<FieldSchema> fields;
 		if (org.apache.hadoop.hive.ql.metadata.Table.hasMetastoreBasedSchema(hiveConf,
-				hiveTable.getSd().getSerdeInfo().getSerializationLib())) {
+			hiveTable.getSd().getSerdeInfo().getSerializationLib())) {
 			// get schema from metastore
 			fields = hiveTable.getSd().getCols();
 		} else {
 			// get schema from deserializer
 			try {
 				fields = MetaStoreUtils.getFieldsFromDeserializer(hiveTable.getTableName(),
-						MetaStoreUtils.getDeserializer(hiveConf, hiveTable, true));
+					MetaStoreUtils.getDeserializer(hiveConf, hiveTable, true));
 			} catch (SerDeException | MetaException e) {
 				throw new CatalogException("Failed to get Hive table schema from deserializer", e);
 			}
@@ -532,17 +542,17 @@ public class HiveCatalog extends AbstractCatalog {
 
 		if (isView) {
 			return new CatalogViewImpl(
-					hiveTable.getViewOriginalText(),
-					hiveTable.getViewExpandedText(),
-					tableSchema,
-					properties,
-					comment);
+				hiveTable.getViewOriginalText(),
+				hiveTable.getViewExpandedText(),
+				tableSchema,
+				properties,
+				comment);
 		} else {
 			return new CatalogTableImpl(tableSchema, partitionKeys, properties, comment);
 		}
 	}
 
-	private  static Table instantiateHiveTable(ObjectPath tablePath, CatalogBaseTable table) {
+	private static Table instantiateHiveTable(ObjectPath tablePath, CatalogBaseTable table) {
 		// let Hive set default parameters for us, e.g. serialization.format
 		Table hiveTable = org.apache.hadoop.hive.ql.metadata.Table.getEmptyTable(tablePath.getDatabaseName(),
 			tablePath.getObjectName());
@@ -637,7 +647,7 @@ public class HiveCatalog extends AbstractCatalog {
 
 	@Override
 	public boolean partitionExists(ObjectPath tablePath, CatalogPartitionSpec partitionSpec)
-			throws CatalogException {
+		throws CatalogException {
 		checkNotNull(tablePath, "Table path cannot be null");
 		checkNotNull(partitionSpec, "CatalogPartitionSpec cannot be null");
 
@@ -653,7 +663,7 @@ public class HiveCatalog extends AbstractCatalog {
 
 	@Override
 	public void createPartition(ObjectPath tablePath, CatalogPartitionSpec partitionSpec, CatalogPartition partition, boolean ignoreIfExists)
-			throws TableNotExistException, TableNotPartitionedException, PartitionSpecInvalidException, PartitionAlreadyExistsException, CatalogException {
+		throws TableNotExistException, TableNotPartitionedException, PartitionSpecInvalidException, PartitionAlreadyExistsException, CatalogException {
 		checkNotNull(tablePath, "Table path cannot be null");
 		checkNotNull(partitionSpec, "CatalogPartitionSpec cannot be null");
 		checkNotNull(partition, "Partition cannot be null");
@@ -684,7 +694,7 @@ public class HiveCatalog extends AbstractCatalog {
 
 	@Override
 	public void dropPartition(ObjectPath tablePath, CatalogPartitionSpec partitionSpec, boolean ignoreIfNotExists)
-			throws PartitionNotExistException, CatalogException {
+		throws PartitionNotExistException, CatalogException {
 		checkNotNull(tablePath, "Table path cannot be null");
 		checkNotNull(partitionSpec, "CatalogPartitionSpec cannot be null");
 
@@ -706,7 +716,7 @@ public class HiveCatalog extends AbstractCatalog {
 
 	@Override
 	public List<CatalogPartitionSpec> listPartitions(ObjectPath tablePath)
-			throws TableNotExistException, TableNotPartitionedException, CatalogException {
+		throws TableNotExistException, TableNotPartitionedException, CatalogException {
 		checkNotNull(tablePath, "Table path cannot be null");
 
 		Table hiveTable = getHiveTable(tablePath);
@@ -725,7 +735,7 @@ public class HiveCatalog extends AbstractCatalog {
 
 	@Override
 	public List<CatalogPartitionSpec> listPartitions(ObjectPath tablePath, CatalogPartitionSpec partitionSpec)
-			throws TableNotExistException, TableNotPartitionedException, CatalogException {
+		throws TableNotExistException, TableNotPartitionedException, CatalogException {
 		checkNotNull(tablePath, "Table path cannot be null");
 		checkNotNull(partitionSpec, "CatalogPartitionSpec cannot be null");
 
@@ -746,7 +756,7 @@ public class HiveCatalog extends AbstractCatalog {
 
 	@Override
 	public CatalogPartition getPartition(ObjectPath tablePath, CatalogPartitionSpec partitionSpec)
-			throws PartitionNotExistException, CatalogException {
+		throws PartitionNotExistException, CatalogException {
 		checkNotNull(tablePath, "Table path cannot be null");
 		checkNotNull(partitionSpec, "CatalogPartitionSpec cannot be null");
 
@@ -770,7 +780,7 @@ public class HiveCatalog extends AbstractCatalog {
 
 	@Override
 	public void alterPartition(ObjectPath tablePath, CatalogPartitionSpec partitionSpec, CatalogPartition newPartition, boolean ignoreIfNotExists)
-			throws PartitionNotExistException, CatalogException {
+		throws PartitionNotExistException, CatalogException {
 		checkNotNull(tablePath, "Table path cannot be null");
 		checkNotNull(partitionSpec, "CatalogPartitionSpec cannot be null");
 		checkNotNull(newPartition, "New partition cannot be null");
@@ -827,7 +837,7 @@ public class HiveCatalog extends AbstractCatalog {
 	}
 
 	private Partition instantiateHivePartition(Table hiveTable, CatalogPartitionSpec partitionSpec, CatalogPartition catalogPartition)
-			throws PartitionSpecInvalidException {
+		throws PartitionSpecInvalidException {
 		List<String> partCols = getFieldNames(hiveTable.getPartitionKeys());
 		List<String> partValues = getOrderedFullPartitionValues(
 			partitionSpec, partCols, new ObjectPath(hiveTable.getDbName(), hiveTable.getTableName()));
@@ -846,11 +856,11 @@ public class HiveCatalog extends AbstractCatalog {
 		properties.put(HiveCatalogConfig.COMMENT, catalogPartition.getComment());
 
 		return HiveTableUtil.createHivePartition(
-				hiveTable.getDbName(),
-				hiveTable.getTableName(),
-				partValues,
-				sd,
-				properties);
+			hiveTable.getDbName(),
+			hiveTable.getTableName(),
+			partValues,
+			sd,
+			properties);
 	}
 
 	private void ensurePartitionedTable(ObjectPath tablePath, Table hiveTable) throws TableNotPartitionedException {
@@ -889,13 +899,13 @@ public class HiveCatalog extends AbstractCatalog {
 	 *
 	 * @param partitionSpec a partition spec.
 	 * @param partitionKeys a list of partition keys.
-	 * @param tablePath path of the table to which the partition belongs.
+	 * @param tablePath     path of the table to which the partition belongs.
 	 * @return A list of partition values ordered according to partitionKeys.
 	 * @throws PartitionSpecInvalidException thrown if partitionSpec and partitionKeys have different sizes,
 	 *                                       or any key in partitionKeys doesn't exist in partitionSpec.
 	 */
 	private List<String> getOrderedFullPartitionValues(CatalogPartitionSpec partitionSpec, List<String> partitionKeys, ObjectPath tablePath)
-			throws PartitionSpecInvalidException {
+		throws PartitionSpecInvalidException {
 		Map<String, String> spec = partitionSpec.getPartitionSpec();
 		if (spec.size() != partitionKeys.size()) {
 			throw new PartitionSpecInvalidException(getName(), partitionKeys, tablePath, partitionSpec);
@@ -914,12 +924,12 @@ public class HiveCatalog extends AbstractCatalog {
 	}
 
 	private Partition getHivePartition(ObjectPath tablePath, CatalogPartitionSpec partitionSpec)
-			throws TableNotExistException, PartitionSpecInvalidException, TException {
+		throws TableNotExistException, PartitionSpecInvalidException, TException {
 		return getHivePartition(getHiveTable(tablePath), partitionSpec);
 	}
 
 	private Partition getHivePartition(Table hiveTable, CatalogPartitionSpec partitionSpec)
-			throws PartitionSpecInvalidException, TException {
+		throws PartitionSpecInvalidException, TException {
 		return client.getPartition(hiveTable.getDbName(), hiveTable.getTableName(),
 			getOrderedFullPartitionValues(partitionSpec, getFieldNames(hiveTable.getPartitionKeys()),
 				new ObjectPath(hiveTable.getDbName(), hiveTable.getTableName())));
@@ -929,7 +939,7 @@ public class HiveCatalog extends AbstractCatalog {
 
 	@Override
 	public void createFunction(ObjectPath functionPath, CatalogFunction function, boolean ignoreIfExists)
-			throws FunctionAlreadyExistException, DatabaseNotExistException, CatalogException {
+		throws FunctionAlreadyExistException, DatabaseNotExistException, CatalogException {
 		checkNotNull(functionPath, "functionPath cannot be null");
 		checkNotNull(function, "function cannot be null");
 
@@ -957,7 +967,7 @@ public class HiveCatalog extends AbstractCatalog {
 
 	@Override
 	public void alterFunction(ObjectPath functionPath, CatalogFunction newFunction, boolean ignoreIfNotExists)
-			throws FunctionNotExistException, CatalogException {
+		throws FunctionNotExistException, CatalogException {
 		checkNotNull(functionPath, "functionPath cannot be null");
 		checkNotNull(newFunction, "newFunction cannot be null");
 
@@ -996,7 +1006,7 @@ public class HiveCatalog extends AbstractCatalog {
 
 	@Override
 	public void dropFunction(ObjectPath functionPath, boolean ignoreIfNotExists)
-			throws FunctionNotExistException, CatalogException {
+		throws FunctionNotExistException, CatalogException {
 		checkNotNull(functionPath, "functionPath cannot be null");
 
 		try {
@@ -1090,11 +1100,11 @@ public class HiveCatalog extends AbstractCatalog {
 			HiveStringUtils.normalizeIdentifier(functionPath.getObjectName()),
 			functionPath.getDatabaseName(),
 			functionClassName,
-			null,			// Owner name
-			PrincipalType.GROUP,	// Temporarily set to GROUP type because it's required by Hive. May change later
+			null,            // Owner name
+			PrincipalType.GROUP,    // Temporarily set to GROUP type because it's required by Hive. May change later
 			(int) (System.currentTimeMillis() / 1000),
-			FunctionType.JAVA,		// FunctionType only has JAVA now
-			new ArrayList<>()		// Resource URIs
+			FunctionType.JAVA,        // FunctionType only has JAVA now
+			new ArrayList<>()        // Resource URIs
 		);
 	}
 
@@ -1142,6 +1152,7 @@ public class HiveCatalog extends AbstractCatalog {
 
 	/**
 	 * Determine if statistics is need to be updated, if it needs to be updated and updated its parameters.
+	 *
 	 * @param statistics original ``hive table statistics.
 	 * @param parameters new catalog table statistics parameters.
 	 * @return needUpdateStatistics flag which indicates whether need to update stats.
@@ -1199,7 +1210,7 @@ public class HiveCatalog extends AbstractCatalog {
 			}
 		} catch (TException e) {
 			throw new CatalogException(String.format("Failed to alter table column stats of table %s 's partition %s",
-													tablePath.getFullName(), String.valueOf(partitionSpec)), e);
+				tablePath.getFullName(), String.valueOf(partitionSpec)), e);
 		}
 	}
 
@@ -1215,7 +1226,7 @@ public class HiveCatalog extends AbstractCatalog {
 
 	@Override
 	public CatalogTableStatistics getTableStatistics(ObjectPath tablePath) throws TableNotExistException,
-			CatalogException {
+		CatalogException {
 		Table hiveTable = getHiveTable(tablePath);
 		if (!isTablePartitioned(hiveTable)) {
 			return createCatalogTableStatistics(hiveTable.getParameters());
@@ -1230,7 +1241,7 @@ public class HiveCatalog extends AbstractCatalog {
 		try {
 			if (!isTablePartitioned(hiveTable)) {
 				List<ColumnStatisticsObj> columnStatisticsObjs = client.getTableColumnStatistics(
-						hiveTable.getDbName(), hiveTable.getTableName(), getFieldNames(hiveTable.getSd().getCols()));
+					hiveTable.getDbName(), hiveTable.getTableName(), getFieldNames(hiveTable.getSd().getCols()));
 				return new CatalogColumnStatistics(HiveStatsUtil.createCatalogColumnStats(columnStatisticsObjs));
 			} else {
 				// TableColumnStats of partitioned table is unknown, the behavior is same as HIVE
@@ -1238,7 +1249,7 @@ public class HiveCatalog extends AbstractCatalog {
 			}
 		} catch (TException e) {
 			throw new CatalogException(String.format("Failed to get table column stats of table %s",
-													tablePath.getFullName()), e);
+				tablePath.getFullName()), e);
 		}
 	}
 
@@ -1251,7 +1262,7 @@ public class HiveCatalog extends AbstractCatalog {
 			throw new PartitionNotExistException(getName(), tablePath, partitionSpec, e);
 		} catch (TException e) {
 			throw new CatalogException(String.format("Failed to get partition stats of table %s 's partition %s",
-													tablePath.getFullName(), String.valueOf(partitionSpec)), e);
+				tablePath.getFullName(), String.valueOf(partitionSpec)), e);
 		}
 	}
 
@@ -1264,8 +1275,8 @@ public class HiveCatalog extends AbstractCatalog {
 			List<String> partNames = new ArrayList<>();
 			partNames.add(partName);
 			Map<String, List<ColumnStatisticsObj>> partitionColumnStatistics =
-					client.getPartitionColumnStatistics(partition.getDbName(), partition.getTableName(), partNames,
-														getFieldNames(partition.getSd().getCols()));
+				client.getPartitionColumnStatistics(partition.getDbName(), partition.getTableName(), partNames,
+					getFieldNames(partition.getSd().getCols()));
 			List<ColumnStatisticsObj> columnStatisticsObjs = partitionColumnStatistics.get(partName);
 			if (columnStatisticsObjs != null && !columnStatisticsObjs.isEmpty()) {
 				return new CatalogColumnStatistics(HiveStatsUtil.createCatalogColumnStats(columnStatisticsObjs));
@@ -1276,7 +1287,7 @@ public class HiveCatalog extends AbstractCatalog {
 			throw new PartitionNotExistException(getName(), tablePath, partitionSpec);
 		} catch (TException e) {
 			throw new CatalogException(String.format("Failed to get table stats of table %s 's partition %s",
-													tablePath.getFullName(), String.valueOf(partitionSpec)), e);
+				tablePath.getFullName(), String.valueOf(partitionSpec)), e);
 		}
 	}
 

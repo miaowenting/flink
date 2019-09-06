@@ -48,23 +48,33 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 /**
  * A CatalogManager that encapsulates all available catalogs. It also implements the logic of
  * table path resolution. Supports both new API ({@link Catalog} as well as {@link ExternalCatalog}).
+ * 负责管理不同的 Catalog 实例
  */
 @Internal
 public class CatalogManager {
 	private static final Logger LOG = LoggerFactory.getLogger(CatalogManager.class);
 
-	// A map between names and catalogs.
+	/**
+	 * A map between names and catalogs.
+	 * 不同的Catalog实现
+	 */
 	private Map<String, Catalog> catalogs;
 
-	// TO BE REMOVED along with ExternalCatalog API
-	private Map<String, ExternalCatalog>  externalCatalogs;
+	/**
+	 * TO BE REMOVED along with ExternalCatalog API
+	 */
+	private Map<String, ExternalCatalog> externalCatalogs;
 
-	// The name of the current catalog and database
+	/**
+	 * The name of the current catalog and database
+	 */
 	private String currentCatalogName;
 
 	private String currentDatabaseName;
 
-	// The name of the built-in catalog
+	/**
+	 * The name of the built-in catalog
+	 */
 	private final String builtInCatalogName;
 
 	/**
@@ -78,23 +88,23 @@ public class CatalogManager {
 		private final List<String> tablePath;
 
 		static ResolvedTable externalTable(
-				List<String> tablePath,
-				ExternalCatalogTable table,
-				TableSchema tableSchema) {
+			List<String> tablePath,
+			ExternalCatalogTable table,
+			TableSchema tableSchema) {
 			return new ResolvedTable(table, null, tableSchema, tablePath);
 		}
 
 		static ResolvedTable catalogTable(
-				List<String> tablePath,
-				CatalogBaseTable table) {
+			List<String> tablePath,
+			CatalogBaseTable table) {
 			return new ResolvedTable(null, table, table.getSchema(), tablePath);
 		}
 
 		private ResolvedTable(
-				ExternalCatalogTable externalCatalogTable,
-				CatalogBaseTable catalogTable,
-				TableSchema tableSchema,
-				List<String> tablePath) {
+			ExternalCatalogTable externalCatalogTable,
+			CatalogBaseTable catalogTable,
+			TableSchema tableSchema,
+			List<String> tablePath) {
 			this.externalCatalogTable = externalCatalogTable;
 			this.catalogTable = catalogTable;
 			this.tableSchema = tableSchema;
@@ -138,7 +148,7 @@ public class CatalogManager {
 	 * {@link Catalog}s and {@link ExternalCatalog}s.
 	 *
 	 * @param catalogName name under which to register the given catalog
-	 * @param catalog catalog to register
+	 * @param catalog     catalog to register
 	 * @throws CatalogException if the registration of the catalog under the given name failed
 	 */
 	public void registerCatalog(String catalogName, Catalog catalog) {
@@ -169,7 +179,7 @@ public class CatalogManager {
 	 * {@link Catalog}s and {@link ExternalCatalog}s.
 	 *
 	 * @param catalogName name under which to register the given catalog
-	 * @param catalog catalog to register
+	 * @param catalog     catalog to register
 	 * @throws CatalogException thrown if the name is already taken
 	 * @deprecated {@link ExternalCatalog} APIs will be dropped
 	 */
@@ -324,9 +334,9 @@ public class CatalogManager {
 	 * Tries to resolve a table path to a {@link ResolvedTable}. The algorithm looks for requested table
 	 * in the following paths in that order:
 	 * <ol>
-	 *     <li>{@code [current-catalog].[current-database].[tablePath]}</li>
-	 *     <li>{@code [current-catalog].[tablePath]}</li>
-	 *     <li>{@code [tablePath]}</li>
+	 * <li>{@code [current-catalog].[current-database].[tablePath]}</li>
+	 * <li>{@code [current-catalog].[tablePath]}</li>
+	 * <li>{@code [tablePath]}</li>
 	 * </ol>
 	 *
 	 * @param tablePath table path to look for
@@ -437,7 +447,7 @@ public class CatalogManager {
 		}
 
 		if (paths.size() == 3) {
-			return new String[] {paths.get(0), paths.get(1), paths.get(2)};
+			return new String[]{paths.get(0), paths.get(1), paths.get(2)};
 		}
 
 		String catalogName;
@@ -454,6 +464,6 @@ public class CatalogManager {
 			tableName = paths.get(1);
 		}
 
-		return new String[]{ catalogName, dbName, tableName };
+		return new String[]{catalogName, dbName, tableName};
 	}
 }

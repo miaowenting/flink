@@ -4190,7 +4190,157 @@ object ExampleCountWindowAverage extends App {
 
 
 ​    
+# 7. 在Flink1.9.0中使用hive
 
+## 7.1 Flink SQL Client
+
+- 安装flink-1.9.0
+
+- 安装hive-2.3.4
+
+- 在`/usr/local/flink-1.9.0/lib`下添加依赖包：
+
+```
+antlr-runtime-3.5.2.jar
+antlr4-runtime-4.5.jar
+datanucleus-api-jdo-4.2.4.jar
+datanucleus-core-4.1.17.jar
+datanucleus-rdbms-4.1.19.jar
+flink-connector-hive_2.11-1.9.0.jar
+flink-hadoop-compatibility_2.11-1.9.0.jar
+flink-shaded-hadoop-2-uber-2.7.5-7.0.jar
+hive-exec-2.3.4.jar
+javax.jdo-3.2.0-m3.jar
+
+```
+
+- 修改sql-client的配置文件`/usr/local/flink-1.9.0/conf/sql-client-defaults.yaml`:
+
+```
+# catalogs: [] # empty list
+catalogs:
+# A typical catalog definition looks like:
+  - name: myhive_catalog
+    type: hive
+    #property-version: 2
+    hive-conf-dir: /usr/local/hive/conf/
+    #default-database: default
+    hive-version: 2.3.4
+```
+
+  ![avatar](image/Flink_1_9_0_SQL_Client配置hive_catalog.png)
+
+
+- 启动Flink集群：
+
+```
+./start-cluster.sh
+```
+
+- 启动SQL Client：
+
+```
+./sql-client.sh embedded
+```
+  ![avatar](image/Flink_1_9_0_SQL_Client配置hive_catalog后的启动界面.png)
+
+
+- 列举所有的catalog：
+
+```
+Flink SQL> show catalogs;
+2019-09-06 21:46:08,252 INFO  org.apache.hadoop.hive.metastore.HiveMetaStore                - 0: get_database: default
+2019-09-06 21:46:08,252 INFO  org.apache.hadoop.hive.metastore.HiveMetaStore.audit          - ugi=miaowenting	ip=unknown-ip-addr	cmd=get_database: default	
+default_catalog
+myhive_catalog
+```
+
+- 使用catalog、database等：
+
+```
+Flink SQL> use catalog myhive_catalog;
+2019-09-06 21:46:17,845 INFO  org.apache.hadoop.hive.metastore.HiveMetaStore                - 0: get_database: default
+2019-09-06 21:46:17,846 INFO  org.apache.hadoop.hive.metastore.HiveMetaStore.audit          - ugi=miaowenting	ip=unknown-ip-addr	cmd=get_database: default	
+
+Flink SQL> show databases;
+2019-09-06 21:46:22,729 INFO  org.apache.hadoop.hive.metastore.ObjectStore                  - ObjectStore, initialize called
+2019-09-06 21:46:22,738 INFO  org.apache.hadoop.hive.metastore.MetaStoreDirectSql           - Using direct SQL, underlying DB is MYSQL
+2019-09-06 21:46:22,738 INFO  org.apache.hadoop.hive.metastore.ObjectStore                  - Initialized ObjectStore
+2019-09-06 21:46:22,739 INFO  org.apache.hadoop.hive.metastore.HiveMetaStore                - 0: get_database: default
+2019-09-06 21:46:22,739 INFO  org.apache.hadoop.hive.metastore.HiveMetaStore.audit          - ugi=miaowenting	ip=unknown-ip-addr	cmd=get_database: default	
+2019-09-06 21:46:22,743 INFO  org.apache.hadoop.hive.metastore.HiveMetaStore                - 0: get_database: default
+2019-09-06 21:46:22,743 INFO  org.apache.hadoop.hive.metastore.HiveMetaStore.audit          - ugi=miaowenting	ip=unknown-ip-addr	cmd=get_database: default	
+2019-09-06 21:46:22,747 INFO  org.apache.hadoop.hive.metastore.HiveMetaStore                - 0: get_all_databases
+2019-09-06 21:46:22,748 INFO  org.apache.hadoop.hive.metastore.HiveMetaStore.audit          - ugi=miaowenting	ip=unknown-ip-addr	cmd=get_all_databases	
+default
+test
+
+Flink SQL> use test;
+2019-09-06 21:46:26,285 INFO  org.apache.hadoop.hive.metastore.HiveMetaStore                - 0: get_database: default
+2019-09-06 21:46:26,285 INFO  org.apache.hadoop.hive.metastore.HiveMetaStore.audit          - ugi=miaowenting	ip=unknown-ip-addr	cmd=get_database: default	
+2019-09-06 21:46:26,290 INFO  org.apache.hadoop.hive.metastore.HiveMetaStore                - 0: get_database: default
+2019-09-06 21:46:26,291 INFO  org.apache.hadoop.hive.metastore.HiveMetaStore.audit          - ugi=miaowenting	ip=unknown-ip-addr	cmd=get_database: default	
+2019-09-06 21:46:26,294 INFO  org.apache.hadoop.hive.metastore.HiveMetaStore                - 0: get_database: test
+2019-09-06 21:46:26,294 INFO  org.apache.hadoop.hive.metastore.HiveMetaStore.audit          - ugi=miaowenting	ip=unknown-ip-addr	cmd=get_database: test	
+
+Flink SQL> show tables;
+2019-09-06 21:46:40,781 INFO  org.apache.hadoop.hive.metastore.ObjectStore                  - ObjectStore, initialize called
+2019-09-06 21:46:40,789 INFO  org.apache.hadoop.hive.metastore.MetaStoreDirectSql           - Using direct SQL, underlying DB is MYSQL
+2019-09-06 21:46:40,790 INFO  org.apache.hadoop.hive.metastore.ObjectStore                  - Initialized ObjectStore
+2019-09-06 21:46:40,790 INFO  org.apache.hadoop.hive.metastore.HiveMetaStore                - 0: get_database: default
+2019-09-06 21:46:40,790 INFO  org.apache.hadoop.hive.metastore.HiveMetaStore.audit          - ugi=miaowenting	ip=unknown-ip-addr	cmd=get_database: default	
+2019-09-06 21:46:40,794 INFO  org.apache.hadoop.hive.metastore.HiveMetaStore                - 0: get_database: test
+2019-09-06 21:46:40,795 INFO  org.apache.hadoop.hive.metastore.HiveMetaStore.audit          - ugi=miaowenting	ip=unknown-ip-addr	cmd=get_database: test	
+2019-09-06 21:46:40,799 INFO  org.apache.hadoop.hive.metastore.HiveMetaStore                - 0: get_all_tables: db=test
+2019-09-06 21:46:40,799 INFO  org.apache.hadoop.hive.metastore.HiveMetaStore.audit          - ugi=miaowenting	ip=unknown-ip-addr	cmd=get_all_tables: db=test	
+employee
+emplyee
+student
+
+```
+
+查看表结构：
+
+```
+Flink SQL> describe employee;
+2019-09-06 22:04:15,864 INFO  org.apache.hadoop.hive.metastore.HiveMetaStore                - 0: get_database: default
+2019-09-06 22:04:15,865 INFO  org.apache.hadoop.hive.metastore.HiveMetaStore.audit          - ugi=miaowenting	ip=unknown-ip-addr	cmd=get_database: default	
+2019-09-06 22:04:15,884 INFO  org.apache.hadoop.hive.metastore.HiveMetaStore                - 0: get_database: test
+2019-09-06 22:04:15,884 INFO  org.apache.hadoop.hive.metastore.HiveMetaStore.audit          - ugi=miaowenting	ip=unknown-ip-addr	cmd=get_database: test	
+2019-09-06 22:04:15,892 INFO  org.apache.hadoop.hive.metastore.HiveMetaStore                - 0: get_table : db=test tbl=employee
+2019-09-06 22:04:15,892 INFO  org.apache.hadoop.hive.metastore.HiveMetaStore.audit          - ugi=miaowenting	ip=unknown-ip-addr	cmd=get_table : db=test tbl=employee	
+2019-09-06 22:04:15,934 INFO  org.apache.hadoop.hive.metastore.HiveMetaStore                - 0: get_table : db=test tbl=employee
+2019-09-06 22:04:15,935 INFO  org.apache.hadoop.hive.metastore.HiveMetaStore.audit          - ugi=miaowenting	ip=unknown-ip-addr	cmd=get_table : db=test tbl=employee	
+root
+ |-- id: INT
+ |-- name: STRING
+
+```
+
+查询表数据：
+
+```
+Flink SQL> select * from employee;
+
+```
+
+  ![avatar](image/Flink_1_9_0_SQL_Client查询hive表数据.png)
+
+插入表数据有问题，待解决：
+
+```
+Flink SQL> insert into employee(id,name) values (4,'test');
+[INFO] Submitting SQL update statement to the cluster...
+2019-09-06 21:47:29,944 INFO  org.apache.hadoop.hive.metastore.HiveMetaStore                - 0: get_database: default
+2019-09-06 21:47:29,945 INFO  org.apache.hadoop.hive.metastore.HiveMetaStore.audit          - ugi=miaowenting	ip=unknown-ip-addr	cmd=get_database: default	
+2019-09-06 21:47:29,948 INFO  org.apache.hadoop.hive.metastore.HiveMetaStore                - 0: get_database: test
+2019-09-06 21:47:29,948 INFO  org.apache.hadoop.hive.metastore.HiveMetaStore.audit          - ugi=miaowenting	ip=unknown-ip-addr	cmd=get_database: test	
+[ERROR] Could not execute SQL statement. Reason:
+org.apache.flink.table.api.ValidationException: Partial inserts are not supported
+
+```
+
+## 7.2 Table API
 
 ​    
 

@@ -30,9 +30,13 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * A implementation of {@link CatalogDatabase}.
  */
 public class CatalogDatabaseImpl implements CatalogDatabase {
-	// Property of the database
+	/**
+	 * Property of the database
+	 */
 	private final Map<String, String> properties;
-	// Comment of the database
+	/**
+	 * Comment of the database
+	 */
 	private final String comment;
 
 	public CatalogDatabaseImpl(Map<String, String> properties, @Nullable String comment) {
