@@ -38,13 +38,20 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * DataStream. Every DataStream has an underlying
  * {@code Transformation} that is the origin of said DataStream.
  *
+ * 每一个transformation 代表着创建数据流的操作，每一个transformation都是一个数据流的源头
+ *
  * <p>API operations such as DataStream#map create
  * a tree of {@code Transformation}s underneath. When the stream program is to be executed
  * this graph is translated to a StreamGraph using StreamGraphGenerator.
  *
+ * * 例如一个数据流map的操作，创建了一个transformation的树，当这个流程序要执行时，
+ * 就会使用streamGraphGenerator翻译成StreamGraph
+ *
  * <p>A {@code Transformation} does not necessarily correspond to a physical operation
  * at runtime. Some operations are only logical concepts. Examples of this are union,
  * split/select data stream, partitioning.
+ *
+ * 一个transformation在运行过程中不是必须要与物理操作相符合，一些操作知识逻辑概念，如union，split/select数据流，partitioning
  *
  * <p>The following graph of {@code Transformations}:
  * <pre>{@code
