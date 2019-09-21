@@ -47,6 +47,8 @@ import static org.apache.flink.runtime.io.network.netty.NettyMessage.BufferRespo
 /**
  * A nonEmptyReader of partition queues, which listens for channel writability changed
  * events before writing and flushing {@link Buffer} instances.
+ *
+ * Flink中发送数据的核心代码，该类是server channel pipeline的最后一层
  */
 class PartitionRequestQueue extends ChannelInboundHandlerAdapter {
 
@@ -185,6 +187,9 @@ class PartitionRequestQueue extends ChannelInboundHandlerAdapter {
 		}
 	}
 
+	/**
+	 * 当水位线降下来之后（channel再次可写），会重新触发发送函数
+	 */
 	@Override
 	public void channelWritabilityChanged(ChannelHandlerContext ctx) throws Exception {
 		writeAndFlushNextMessageIfPossible(ctx.channel());
@@ -192,6 +197,7 @@ class PartitionRequestQueue extends ChannelInboundHandlerAdapter {
 
 	private void writeAndFlushNextMessageIfPossible(final Channel channel) throws IOException {
 		if (fatalError || !channel.isWritable()) {
+			// channel.isWritable() 配合 WRITE_BUFFER_LOW_WATER_MARK 和 WRITE_BUFFER_HIGH_WATER_MARK 实现发送端的流量控制
 			return;
 		}
 
@@ -201,6 +207,7 @@ class PartitionRequestQueue extends ChannelInboundHandlerAdapter {
 
 		BufferAndAvailability next = null;
 		try {
+			// 注意: 一个while循环也就最多只发送一个BufferResponse, 连续发送BufferResponse是通过writeListener回调实现的
 			while (true) {
 				NetworkSequenceViewReader reader = pollAvailableReader();
 
@@ -231,6 +238,7 @@ class PartitionRequestQueue extends ChannelInboundHandlerAdapter {
 						registerAvailableReader(reader);
 					}
 
+					// 构造一个response返回给客户端
 					BufferResponse msg = new BufferResponse(
 						next.buffer(),
 						reader.getSequenceNumber(),
@@ -239,6 +247,7 @@ class PartitionRequestQueue extends ChannelInboundHandlerAdapter {
 
 					// Write and flush and wait until this is done before
 					// trying to continue with the next buffer.
+					// 将该response发送到netty channel，当写成功后，通过注册的writeListener又会回调回来，从而不断的消费queue中的请求
 					channel.writeAndFlush(msg).addListener(writeListener);
 
 					return;

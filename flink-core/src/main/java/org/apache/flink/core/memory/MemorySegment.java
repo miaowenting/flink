@@ -123,12 +123,16 @@ public abstract class MemorySegment {
 	 * off the heap. If we have this buffer, we must never void this reference, or the memory
 	 * segment will point to undefined addresses outside the heap and may in out-of-order execution
 	 * cases cause segmentation faults.
+	 *
+	 * 堆内存引用
 	 */
 	protected final byte[] heapMemory;
 
 	/**
 	 * The address to the data, relative to the heap memory byte array. If the heap memory byte
 	 * array is <tt>null</tt>, this becomes an absolute memory address outside the heap.
+	 *
+	 * 对外内存地址
 	 */
 	protected long address;
 
@@ -153,6 +157,7 @@ public abstract class MemorySegment {
 	 *
 	 * <p>Since the byte array is backed by on-heap memory, this memory segment holds its
 	 * data on heap. The buffer must be at least of size 8 bytes.
+	 * 堆内存的初始化
 	 *
 	 * @param buffer The byte array whose memory is represented by this memory segment.
 	 */
@@ -171,6 +176,7 @@ public abstract class MemorySegment {
 	/**
 	 * Creates a new memory segment that represents the memory at the absolute address given
 	 * by the pointer.
+	 * 对外内存的初始化
 	 *
 	 * @param offHeapAddress The address of the memory represented by this memory segment.
 	 * @param size The size of this memory segment.
@@ -413,6 +419,7 @@ public abstract class MemorySegment {
 	/**
 	 * Reads a char value from the given position, in the system's native byte order.
 	 *
+	 * 方法被标记成final，为的是优化JIT编译器，会提醒JIT这个方法是可以被去虚化和内联的
 	 * @param index The position from which the memory will be read.
 	 * @return The char value at the given position.
 	 *
@@ -423,6 +430,7 @@ public abstract class MemorySegment {
 	public final char getChar(int index) {
 		final long pos = address + index;
 		if (index >= 0 && pos <= addressLimit - 2) {
+			// 调用unsafe的getXXX/putXXX
 			return UNSAFE.getChar(heapMemory, pos);
 		}
 		else if (address > addressLimit) {
@@ -835,6 +843,7 @@ public abstract class MemorySegment {
 	public final long getLong(int index) {
 		final long pos = address + index;
 		if (index >= 0 && pos <= addressLimit - 8) {
+			// 使用 Unsafe 来操作 on-heap & off-heap
 			return UNSAFE.getLong(heapMemory, pos);
 		}
 		else if (address > addressLimit) {

@@ -15,23 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.flink.streaming.examples.wordcount;
+package org.apache.flink.streaming.examples.windowing;
 
-import org.apache.flink.api.common.functions.FlatMapFunction;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.examples.wordcount.WordCount;
 import org.apache.flink.streaming.examples.wordcount.util.WordCountData;
-import org.apache.flink.util.Collector;
 
 /**
- * Implements the "WordCount" program that computes a simple word occurrence
- * histogram over text files in a streaming fashion.
+ * Implements a windowed version of the streaming "WordCount" program.
  *
  * <p>The input is a plain text file with lines separated by newline characters.
  *
- * <p>Usage: <code>WordCount --input &lt;path&gt; --output &lt;path&gt;</code><br>
+ * <p>Usage: <code>WordCount --input &lt;path&gt; --output &lt;path&gt; --window &lt;n&gt; --slide &lt;n&gt;</code><br>
  * If no parameters are provided, the program is run with default data from
  * {@link WordCountData}.
  *
@@ -39,12 +37,28 @@ import org.apache.flink.util.Collector;
  * <ul>
  * <li>write a simple Flink Streaming program,
  * <li>use tuple data types,
- * <li>write and use user-defined functions.
+ * <li>use basic windowing abstractions.
  * </ul>
  *
- * 实时统计单词数量，每来一个计算一次并输出一次
+ * 3> (sleep,5)
+ * 7> (of,5)
+ * 8> (and,5)
+ * 5> (the,5)
+ * 6> (to,5)
+ * 6> (to,10)
+ * 5> (the,10)
+ * 7> (of,10)
+ * 5> (the,10)
+ * 6> (to,10)
+ * 6> (a,5)
+ * 5> (s,5)
+ * 7> (of,10)
+ * 5> (the,10)
+ * 8> (and,10)
+ * 5> (that,5)
+ *
  */
-public class WordCount {
+public class WindowWordCount1 {
 
 	// *************************************************************************
 	// PROGRAM
@@ -52,14 +66,10 @@ public class WordCount {
 
 	public static void main(String[] args) throws Exception {
 
-		// Checking input parameters
 		final ParameterTool params = ParameterTool.fromArgs(args);
 
 		// set up the execution environment
 		final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-
-		// make parameters available in the web interface
-		env.getConfig().setGlobalJobParameters(params);
 
 		// get input data
 		DataStream<String> text;
@@ -67,10 +77,9 @@ public class WordCount {
 			// read the text file from given input path
 			text = env.readTextFile(params.get("input"));
 		} else {
-			System.out.println("Executing WordCount example with default input data set.");
+			System.out.println("Executing WindowWordCount example with default input data set.");
 			System.out.println("Use --input to specify file input.");
 			// get default test text data
-//			text = env.fromElements(WordCountData.WORDS);
 			text = env.fromElements(new String[] {
 				"miao,She is a programmer",
 				"wu,He is a programmer",
@@ -78,11 +87,21 @@ public class WordCount {
 			});
 		}
 
+		// make parameters available in the web interface
+		env.getConfig().setGlobalJobParameters(params);
+
+		final int windowSize = params.getInt("window", 3);
+		final int slideSize = params.getInt("slide", 1);
+
 		DataStream<Tuple2<String, Integer>> counts =
-			// split up the lines in pairs (2-tuples) containing: (word,1)
-			text.flatMap(new Tokenizer())
-			// group by the tuple field "0" and sum up tuple field "1"
-			.keyBy(0).sum(1);
+		// split up the lines in pairs (2-tuples) containing: (word,1)
+		text.flatMap(new WordCount.Tokenizer())
+				// create windows of windowSize records slided every slideSize records
+				.keyBy(0)
+			    // count window，窗口中最多容纳3个相同的单词
+				.countWindow(windowSize, slideSize)
+				// group by the tuple field "0" and sum up tuple field "1"
+				.sum(1);
 
 		// emit result
 		if (params.has("output")) {
@@ -93,33 +112,6 @@ public class WordCount {
 		}
 
 		// execute program
-		env.execute("Streaming WordCount");
+		env.execute("WindowWordCount");
 	}
-
-	// *************************************************************************
-	// USER FUNCTIONS
-	// *************************************************************************
-
-	/**
-	 * Implements the string tokenizer that splits sentences into words as a
-	 * user-defined FlatMapFunction. The function takes a line (String) and
-	 * splits it into multiple pairs in the form of "(word,1)" ({@code Tuple2<String,
-	 * Integer>}).
-	 */
-	public static final class Tokenizer implements FlatMapFunction<String, Tuple2<String, Integer>> {
-
-		@Override
-		public void flatMap(String value, Collector<Tuple2<String, Integer>> out) {
-			// normalize and split the line
-			String[] tokens = value.toLowerCase().split("\\W+");
-
-			// emit the pairs
-			for (String token : tokens) {
-				if (token.length() > 0) {
-					out.collect(new Tuple2<>(token, 1));
-				}
-			}
-		}
-	}
-
 }

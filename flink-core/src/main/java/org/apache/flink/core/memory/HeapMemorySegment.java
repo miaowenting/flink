@@ -44,12 +44,14 @@ public final class HeapMemorySegment extends MemorySegment {
 	/**
 	 * An extra reference to the heap memory, so we can let byte array checks fail by the built-in
 	 * checks automatically without extra checks.
+	 * 指向heap memory的额外引用，用来如数组越界的检查
 	 */
 	private byte[] memory;
 
 	/**
 	 * Creates a new memory segment that represents the data in the given byte array.
 	 * The owner of this memory segment is null.
+	 * 只能初始化堆内存
 	 *
 	 * @param memory The byte array that holds the data.
 	 */

@@ -72,7 +72,7 @@ public final class HybridMemorySegment extends MemorySegment {
 	 * otherwise this method with throw an IllegalArgumentException.
 	 *
 	 * <p>The memory segment references the given owner.
-	 *
+	 * 堆外内存初始化
 	 * @param buffer The byte buffer whose memory is represented by this memory segment.
 	 * @param owner The owner references by this memory segment.
 	 * @throws IllegalArgumentException Thrown, if the given ByteBuffer is not direct.
@@ -97,7 +97,7 @@ public final class HybridMemorySegment extends MemorySegment {
 	 * Creates a new memory segment that represents the memory of the byte array.
 	 *
 	 * <p>The memory segment references the given owner.
-	 *
+	 * 堆内存初始化
 	 * @param buffer The byte array whose memory is represented by this memory segment.
 	 * @param owner The owner references by this memory segment.
 	 */
