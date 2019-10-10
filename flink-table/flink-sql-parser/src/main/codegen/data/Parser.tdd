@@ -16,11 +16,15 @@
 
 {
   # Generated parser implementation package and class name.
+  # 生成解析器实现类包和名称
+  # 包名
   package: "org.apache.flink.sql.parser.impl",
+  # 实体类名
   class: "FlinkSqlParserImpl",
 
   # List of additional classes and packages to import.
   # Example. "org.apache.calcite.sql.*", "java.util.List".
+  # 导入处理语句
   imports: [
     "org.apache.flink.sql.parser.ddl.SqlCreateTable",
     "org.apache.flink.sql.parser.ddl.SqlDropTable"
@@ -51,6 +55,7 @@
 
   # List of new keywords. Example: "DATABASES", "TABLES". If the keyword is not a reserved
   # keyword, please also add it to 'nonReservedKeywords' section.
+  # 新增的关键字列表。如果关键字不是一个保留关键字，将其添加到"无保留关键字"部分。
   keywords: [
     "COMMENT",
     "PARTITIONED",
@@ -66,6 +71,7 @@
   ]
 
   # List of keywords from "keywords" section that are not reserved.
+  # "keywords"部分中未保留的关键字列表。
   nonReservedKeywords: [
     "A"
     "ABSENT"
@@ -383,6 +389,7 @@
   # List of methods for parsing custom SQL statements.
   # Return type of method implementation should be 'SqlNode'.
   # Example: SqlShowDatabases(), SqlShowTables().
+  # 用于解析自定义SQL语句的方法列表
   statementParserMethods: [
     "RichSqlInsert()"
   ]
@@ -390,6 +397,7 @@
   # List of methods for parsing custom literals.
   # Return type of method implementation should be "SqlNode".
   # Example: ParseJsonLiteral().
+  # 解析自定义文本的方法列表
   literalParserMethods: [
   ]
 
@@ -410,6 +418,7 @@
   # List of methods for parsing custom data types.
   # Return type of method implementation should be "SqlIdentifier".
   # Example: SqlParseTimeStampZ().
+  # 解析自定义数据类型的方法列表。
   dataTypeParserMethods: [
   ]
 
@@ -422,11 +431,15 @@
   # List of methods for parsing extensions to "ALTER <scope>" calls.
   # Each must accept arguments "(SqlParserPos pos, String scope)".
   # Example: "SqlUploadJarNode"
+  # 解析扩展到"Alter"调用的方法。
+  # 每个都必须接受参数 "（SqlParserPos pos, String scope）"
   alterStatementParserMethods: [
   ]
 
   # List of methods for parsing extensions to "CREATE [OR REPLACE]" calls.
   # Each must accept arguments "(SqlParserPos pos, boolean replace)".
+  # 解析扩展以"CREATE [OR REPLACE]"调用的方法列表。
+  # 每个都必须接受参数 "（SqlParserPos pos, boolean replace）"
   createStatementParserMethods: [
     "SqlCreateTable",
     "SqlCreateView"
@@ -434,6 +447,8 @@
 
   # List of methods for parsing extensions to "DROP" calls.
   # Each must accept arguments "(Span s)".
+  # 解析扩展到"DROP"调用的方法列表。
+  # 每个都必须接受参数 "（SqlParserPos pos）"
   dropStatementParserMethods: [
     "SqlDropTable",
     "SqlDropView"
@@ -443,12 +458,16 @@
   # implementations for parsing custom SQL statements, literals or types
   # given as part of "statementParserMethods", "literalParserMethods" or
   # "dataTypeParserMethods".
+  # @includes目录中具有解析器方法的文件列表
+  # 解析自定义SQL语句、文本或类型的实现
+  # 作为“statementParserMethods”、“literalParserMethods”或“dataTypeParserMethods”的一部分给出。
   implementationFiles: [
     "parserImpls.ftl"
   ]
 
   # List of additional join types. Each is a method with no arguments.
   # Example: LeftSemiJoin()
+  # 其他连接类型的列表。每个方法都是没有参数的方法。
   joinTypes: [
   ]
 
