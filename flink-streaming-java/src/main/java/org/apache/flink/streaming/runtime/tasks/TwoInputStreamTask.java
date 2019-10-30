@@ -44,6 +44,7 @@ public class TwoInputStreamTask<IN1, IN2, OUT> extends AbstractTwoInputStreamTas
 		TypeSerializer<IN1> inputDeserializer1,
 		TypeSerializer<IN2> inputDeserializer2) throws Exception {
 
+		// 创建StreamInputProcessor
 		this.inputProcessor = new StreamTwoInputProcessor<>(
 			inputGates1, inputGates2,
 			inputDeserializer1, inputDeserializer2,

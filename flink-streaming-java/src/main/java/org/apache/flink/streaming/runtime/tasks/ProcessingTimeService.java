@@ -24,6 +24,8 @@ import java.util.concurrent.TimeUnit;
  * Defines the current processing time and handles all related actions,
  * such as register timers for tasks to be executed in the future.
  *
+ * 定义当前的 processing time,以及处理相关操作，例如为任务注册定时器
+ *
  * <p>The access to the time via {@link #getCurrentProcessingTime()} is always available, regardless of
  * whether the timer service has been shut down.
  *

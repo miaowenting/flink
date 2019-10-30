@@ -73,6 +73,7 @@ public class SystemProcessingTimeService extends ProcessingTimeService {
 		this.task = checkNotNull(task);
 		this.checkpointLock = checkNotNull(checkpointLock);
 
+		// 初始化status为STATSUS_ALIVE
 		this.status = new AtomicInteger(STATUS_ALIVE);
 
 		if (threadFactory == null) {
@@ -91,6 +92,7 @@ public class SystemProcessingTimeService extends ProcessingTimeService {
 
 	@Override
 	public long getCurrentProcessingTime() {
+		// 获取当前机器的系统时间戳
 		return System.currentTimeMillis();
 	}
 
@@ -254,7 +256,13 @@ public class SystemProcessingTimeService extends ProcessingTimeService {
 	private static final class TriggerTask implements Runnable {
 
 		private final AtomicInteger serviceStatus;
+		/**
+		 * 对象锁
+		 */
 		private final Object lock;
+		/**
+		 * 关于processing time回调操作
+		 */
 		private final ProcessingTimeCallback target;
 		private final long timestamp;
 		private final AsyncExceptionHandler exceptionHandler;
@@ -278,6 +286,7 @@ public class SystemProcessingTimeService extends ProcessingTimeService {
 			synchronized (lock) {
 				try {
 					if (serviceStatus.get() == STATUS_ALIVE) {
+						// 使用processing time，到达触发时间了进行回调操作
 						target.onProcessingTime(timestamp);
 					}
 				} catch (Throwable t) {

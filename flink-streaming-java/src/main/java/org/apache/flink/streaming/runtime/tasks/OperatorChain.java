@@ -75,6 +75,8 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * The {@code OperatorChain} contains all operators that are executed as one chain within a single
  * {@link StreamTask}.
  *
+ * 在一个StreamTask中执行的所有operators
+ *
  * @param <OUT> The type of elements accepted by the chain, i.e., the input type of the chain's
  *              head operator.
  */

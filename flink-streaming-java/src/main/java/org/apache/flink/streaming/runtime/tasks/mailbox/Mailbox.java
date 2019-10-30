@@ -23,6 +23,8 @@ import javax.annotation.Nonnull;
 /**
  * A mailbox is basically a blocking queue for inter-thread message exchange in form of {@link Runnable} objects between
  * multiple producer threads and a single consumer.
+ * 阻塞队列，用于内部线程消息交换，多个生产者线程和一个消费者线程
+ * 实现 MailboxReceiver 和 MailboxSender 接口
  */
 public interface Mailbox extends MailboxReceiver, MailboxSender {
 

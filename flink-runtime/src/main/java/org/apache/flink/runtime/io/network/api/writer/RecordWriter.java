@@ -102,6 +102,7 @@ public class RecordWriter<T extends IOReadableWritable> {
 		}
 
 		checkArgument(timeout >= -1);
+		// timeout = 0 ，就会来一条数据flush一条
 		this.flushAlways = (timeout == 0);
 		if (timeout == -1 || timeout == 0) {
 			outputFlusher = Optional.empty();
@@ -308,6 +309,7 @@ public class RecordWriter<T extends IOReadableWritable> {
 	 * A dedicated thread that periodically flushes the output buffers, to set upper latency bounds.
 	 *
 	 * <p>The thread is daemonic, because it is only a utility thread.
+	 * 守护线程，定期刷写output buffers
 	 */
 	private class OutputFlusher extends Thread {
 

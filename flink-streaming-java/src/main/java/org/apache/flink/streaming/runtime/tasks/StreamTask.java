@@ -122,20 +122,30 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 @Internal
 public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
-		extends AbstractInvokable
-		implements AsyncExceptionHandler {
+	extends AbstractInvokable
+	implements AsyncExceptionHandler {
 
-	/** The thread group that holds all trigger timer threads. */
+	/**
+	 * The thread group that holds all trigger timer threads.
+	 */
 	public static final ThreadGroup TRIGGER_THREAD_GROUP = new ThreadGroup("Triggers");
 
-	/** The logger used by the StreamTask and its subclasses. */
+	/**
+	 * The logger used by the StreamTask and its subclasses.
+	 */
 	private static final Logger LOG = LoggerFactory.getLogger(StreamTask.class);
 
-	/** Special value, letter that terminates the mailbox loop. */
-	private static final Runnable POISON_LETTER = () -> {};
+	/**
+	 * Special value, letter that terminates the mailbox loop.
+	 */
+	private static final Runnable POISON_LETTER = () -> {
+	};
 
-	/** Special value, letter that "wakes up" a waiting mailbox loop. */
-	private static final Runnable DEFAULT_ACTION_AVAILABLE = () -> {};
+	/**
+	 * Special value, letter that "wakes up" a waiting mailbox loop.
+	 */
+	private static final Runnable DEFAULT_ACTION_AVAILABLE = () -> {
+	};
 
 	// ------------------------------------------------------------------------
 
@@ -151,19 +161,30 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 	@Nullable
 	protected StreamInputProcessor inputProcessor;
 
-	/** the head operator that consumes the input streams of this task. */
+	/**
+	 * the head operator that consumes the input streams of this task.
+	 */
 	protected OP headOperator;
 
-	/** The chain of operators executed by this task. */
+	/**
+	 * The chain of operators executed by this task.
+	 */
 	protected OperatorChain<OUT, OP> operatorChain;
 
-	/** The configuration of this streaming task. */
+	/**
+	 * The configuration of this streaming task.
+	 */
 	protected final StreamConfig configuration;
 
-	/** Our state backend. We use this to create checkpoint streams and a keyed state backend. */
+	/**
+	 * Our state backend. We use this to create checkpoint streams and a keyed state backend.
+	 */
 	protected StateBackend stateBackend;
 
-	/** The external storage where checkpoint data is persisted. */
+	/**
+	 * The external storage where checkpoint data is persisted.
+	 * 创建checkpoint数据存储的外部存储类
+	 */
 	private CheckpointStorageWorkerView checkpointStorage;
 
 	/**
@@ -175,10 +196,14 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 
 	private final Thread.UncaughtExceptionHandler uncaughtExceptionHandler;
 
-	/** The map of user-defined accumulators of this task. */
+	/**
+	 * The map of user-defined accumulators of this task.
+	 */
 	private final Map<String, Accumulator<?, ?>> accumulatorMap;
 
-	/** The currently active background materialization threads. */
+	/**
+	 * The currently active background materialization threads.
+	 */
 	private final CloseableRegistry cancelables = new CloseableRegistry();
 
 	private final StreamTaskAsyncExceptionHandler asyncExceptionHandler;
@@ -189,19 +214,30 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 	 */
 	private volatile boolean isRunning;
 
-	/** Flag to mark this task as canceled. */
+	/**
+	 * Flag to mark this task as canceled.
+	 */
 	private volatile boolean canceled;
 
-	/** Thread pool for async snapshot workers. */
+	/**
+	 * Thread pool for async snapshot workers.
+	 * 执行异步snapshot的线程池
+	 */
 	private ExecutorService asyncOperationsThreadPool;
 
-	/** Handler for exceptions during checkpointing in the stream task. Used in synchronous part of the checkpoint. */
+	/**
+	 * Handler for exceptions during checkpointing in the stream task. Used in synchronous part of the checkpoint.
+	 * checkpoint出错的处理类
+	 */
 	private CheckpointExceptionHandler checkpointExceptionHandler;
 
 	private final List<RecordWriter<SerializationDelegate<StreamRecord<OUT>>>> recordWriters;
 
 	private final SynchronousSavepointLatch syncSavepointLatch;
 
+	/**
+	 * 用于线程之间交换消息的阻塞队列
+	 */
 	protected final Mailbox mailbox;
 
 	// ------------------------------------------------------------------------
@@ -218,7 +254,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 	/**
 	 * Constructor for initialization, possibly with initial state (recovery / savepoint / etc).
 	 *
-	 * @param env The task environment for this task.
+	 * @param env          The task environment for this task.
 	 * @param timeProvider Optionally, a specific time provider to use.
 	 */
 	protected StreamTask(Environment env, @Nullable ProcessingTimeService timeProvider) {
@@ -232,14 +268,14 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 	 * null is passes for the time provider) a {@link SystemProcessingTimeService DefaultTimerService}
 	 * will be used.
 	 *
-	 * @param environment The task environment for this task.
-	 * @param timeProvider Optionally, a specific time provider to use.
+	 * @param environment              The task environment for this task.
+	 * @param timeProvider             Optionally, a specific time provider to use.
 	 * @param uncaughtExceptionHandler to handle uncaught exceptions in the async operations thread pool
 	 */
 	protected StreamTask(
-			Environment environment,
-			@Nullable ProcessingTimeService timeProvider,
-			Thread.UncaughtExceptionHandler uncaughtExceptionHandler) {
+		Environment environment,
+		@Nullable ProcessingTimeService timeProvider,
+		Thread.UncaughtExceptionHandler uncaughtExceptionHandler) {
 
 		super(environment);
 
@@ -247,6 +283,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 		this.uncaughtExceptionHandler = Preconditions.checkNotNull(uncaughtExceptionHandler);
 		this.configuration = new StreamConfig(getTaskConfiguration());
 		this.accumulatorMap = getEnvironment().getAccumulatorRegistry().getUserMap();
+		// 创建 RecordWriters
 		this.recordWriters = createRecordWriters(configuration, environment);
 		this.syncSavepointLatch = new SynchronousSavepointLatch();
 		this.mailbox = new MailboxImpl();
@@ -276,6 +313,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 	 * @throws Exception on any problems in the action.
 	 */
 	protected void performDefaultAction(ActionContext context) throws Exception {
+		// processing input records
 		if (!inputProcessor.processInput()) {
 			context.allActionsCompleted();
 		}
@@ -289,8 +327,11 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 		while (true) {
 			if (mailbox.hasMail()) {
 				Optional<Runnable> maybeLetter;
+				// 从mailbox中取出mail，并且值不为null
 				while ((maybeLetter = mailbox.tryTakeMail()).isPresent()) {
+					// 从letter中取出Runnable线程
 					Runnable letter = maybeLetter.get();
+					//
 					if (letter == POISON_LETTER) {
 						return;
 					}
@@ -359,10 +400,12 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 			checkpointExceptionHandler = cpExceptionHandlerFactory
 				.createCheckpointExceptionHandler(getEnvironment());
 
+			// 创建StateBackend状态后端
 			stateBackend = createStateBackend();
 			checkpointStorage = stateBackend.createCheckpointStorage(getEnvironment().getJobID());
 
 			// if the clock is not already set, then assign a default TimeServiceProvider
+			// 设置时钟
 			if (timerService == null) {
 				ThreadFactory timerThreadFactory = new DispatcherThreadFactory(TRIGGER_THREAD_GROUP,
 					"Time Trigger for " + getName(), getUserCodeClassLoader());
@@ -370,14 +413,17 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 				timerService = new SystemProcessingTimeService(this, getCheckpointLock(), timerThreadFactory);
 			}
 
+			// 创建OperatorChain
 			operatorChain = new OperatorChain<>(this, recordWriters);
 			headOperator = operatorChain.getHeadOperator();
 
 			// task specific initialization
+			// StreamTask的初始化操作，从StreamConfig中获取序列化器、StreamEdge、MetricsGroup等信息
 			init();
 
 			// save the work of reloading state, etc, if the task is already canceled
 			if (canceled) {
+				// canceled 被外部设置为true
 				throw new CancelTaskException();
 			}
 
@@ -392,7 +438,9 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 				// so that we avoid race conditions in the case that initializeState()
 				// registers a timer, that fires before the open() is called.
 
+				// 取出OperatorChain的所有operators，执行各自的initializeState()
 				initializeState();
+				// 取出OperatorChain的所有operators，执行各自的open()
 				openAllOperators();
 			}
 
@@ -442,8 +490,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 			// still let the computation fail
 			tryDisposeAllOperators();
 			disposed = true;
-		}
-		finally {
+		} finally {
 			// clean up everything we initialized
 			isRunning = false;
 
@@ -464,8 +511,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 			try {
 				cancelables.close();
 				shutdownAsyncThreads();
-			}
-			catch (Throwable t) {
+			} catch (Throwable t) {
 				// catch and log the exception to not replace the original exception
 				LOG.error("Could not shut down async checkpoint threads", t);
 			}
@@ -473,8 +519,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 			// we must! perform this cleanup
 			try {
 				cleanup();
-			}
-			catch (Throwable t) {
+			} catch (Throwable t) {
 				// catch and log the exception to not replace the original exception
 				LOG.error("Error during cleanup of stream task", t);
 			}
@@ -506,8 +551,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 		try {
 			syncSavepointLatch.cancelCheckpointLatch();
 			cancelTask();
-		}
-		finally {
+		} finally {
 			cancelables.close();
 		}
 	}
@@ -584,8 +628,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 					if (operator != null) {
 						operator.dispose();
 					}
-				}
-				catch (Throwable t) {
+				} catch (Throwable t) {
 					LOG.error("Error during disposal of stream operator.", t);
 				}
 			}
@@ -623,6 +666,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 
 	/**
 	 * Gets the name of the task, in the form "taskname (2/5)".
+	 *
 	 * @return The name of the task.
 	 */
 	public String getName() {
@@ -641,6 +685,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 
 	/**
 	 * Gets the lock object on which all operations that involve data and state mutation have to lock.
+	 *
 	 * @return The checkpoint lock object.
 	 */
 	public Object getCheckpointLock() {
@@ -673,19 +718,18 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 
 	@Override
 	public boolean triggerCheckpoint(
-			CheckpointMetaData checkpointMetaData,
-			CheckpointOptions checkpointOptions,
-			boolean advanceToEndOfEventTime) throws Exception {
+		CheckpointMetaData checkpointMetaData,
+		CheckpointOptions checkpointOptions,
+		boolean advanceToEndOfEventTime) throws Exception {
 
 		try {
 			// No alignment if we inject a checkpoint
 			CheckpointMetrics checkpointMetrics = new CheckpointMetrics()
-					.setBytesBufferedInAlignment(0L)
-					.setAlignmentDurationNanos(0L);
+				.setBytesBufferedInAlignment(0L)
+				.setAlignmentDurationNanos(0L);
 
 			return performCheckpoint(checkpointMetaData, checkpointOptions, checkpointMetrics, advanceToEndOfEventTime);
-		}
-		catch (Exception e) {
+		} catch (Exception e) {
 			// propagate exceptions only if the task is still in "running" state
 			if (isRunning) {
 				throw new Exception("Could not perform checkpoint " + checkpointMetaData.getCheckpointId() +
@@ -700,9 +744,9 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 
 	@Override
 	public void triggerCheckpointOnBarrier(
-			CheckpointMetaData checkpointMetaData,
-			CheckpointOptions checkpointOptions,
-			CheckpointMetrics checkpointMetrics) throws Exception {
+		CheckpointMetaData checkpointMetaData,
+		CheckpointOptions checkpointOptions,
+		CheckpointMetrics checkpointMetrics) throws Exception {
 
 		try {
 			if (performCheckpoint(checkpointMetaData, checkpointOptions, checkpointMetrics, false)) {
@@ -710,13 +754,11 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 					syncSavepointLatch.blockUntilCheckpointIsAcknowledged();
 				}
 			}
-		}
-		catch (CancelTaskException e) {
+		} catch (CancelTaskException e) {
 			LOG.info("Operator {} was cancelled while performing checkpoint {}.",
-					getName(), checkpointMetaData.getCheckpointId());
+				getName(), checkpointMetaData.getCheckpointId());
 			throw e;
-		}
-		catch (Exception e) {
+		} catch (Exception e) {
 			throw new Exception("Could not perform checkpoint " + checkpointMetaData.getCheckpointId() + " for operator " +
 				getName() + '.', e);
 		}
@@ -736,10 +778,10 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 	}
 
 	private boolean performCheckpoint(
-			CheckpointMetaData checkpointMetaData,
-			CheckpointOptions checkpointOptions,
-			CheckpointMetrics checkpointMetrics,
-			boolean advanceToEndOfTime) throws Exception {
+		CheckpointMetaData checkpointMetaData,
+		CheckpointOptions checkpointOptions,
+		CheckpointMetrics checkpointMetrics,
+		boolean advanceToEndOfTime) throws Exception {
 
 		LOG.debug("Starting checkpoint ({}) {} on task {}",
 			checkpointMetaData.getCheckpointId(), checkpointOptions.getCheckpointType(), getName());
@@ -768,17 +810,16 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 
 				// Step (2): Send the checkpoint barrier downstream
 				operatorChain.broadcastCheckpointBarrier(
-						checkpointId,
-						checkpointMetaData.getTimestamp(),
-						checkpointOptions);
+					checkpointId,
+					checkpointMetaData.getTimestamp(),
+					checkpointOptions);
 
 				// Step (3): Take the state snapshot. This should be largely asynchronous, to not
 				//           impact progress of the streaming topology
 				checkpointState(checkpointMetaData, checkpointOptions, checkpointMetrics);
 
 				return true;
-			}
-			else {
+			} else {
 				// we cannot perform our checkpoint - let the downstream operators know that they
 				// should not wait for any input from this operator
 
@@ -824,8 +865,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 				}
 
 				success = true;
-			}
-			else {
+			} else {
 				LOG.debug("Ignoring notification of complete checkpoint for not-running task {}", getName());
 			}
 		}
@@ -854,13 +894,13 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 	}
 
 	private void checkpointState(
-			CheckpointMetaData checkpointMetaData,
-			CheckpointOptions checkpointOptions,
-			CheckpointMetrics checkpointMetrics) throws Exception {
+		CheckpointMetaData checkpointMetaData,
+		CheckpointOptions checkpointOptions,
+		CheckpointMetrics checkpointMetrics) throws Exception {
 
 		CheckpointStreamFactory storage = checkpointStorage.resolveCheckpointStorageLocation(
-				checkpointMetaData.getCheckpointId(),
-				checkpointOptions.getTargetLocation());
+			checkpointMetaData.getCheckpointId(),
+			checkpointOptions.getTargetLocation());
 
 		CheckpointingOperation checkpointingOperation = new CheckpointingOperation(
 			this,
@@ -891,10 +931,10 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 		final StateBackend fromApplication = configuration.getStateBackend(getUserCodeClassLoader());
 
 		return StateBackendLoader.fromApplicationOrConfigOrDefault(
-				fromApplication,
-				getEnvironment().getTaskManagerInfo().getConfiguration(),
-				getUserCodeClassLoader(),
-				LOG);
+			fromApplication,
+			getEnvironment().getTaskManagerInfo().getConfiguration(),
+			getUserCodeClassLoader(),
+			LOG);
 	}
 
 	protected CheckpointExceptionHandlerFactory createCheckpointExceptionHandlerFactory() {
@@ -1193,11 +1233,11 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 		private final Map<OperatorID, OperatorSnapshotFutures> operatorSnapshotsInProgress;
 
 		public CheckpointingOperation(
-				StreamTask<?, ?> owner,
-				CheckpointMetaData checkpointMetaData,
-				CheckpointOptions checkpointOptions,
-				CheckpointStreamFactory checkpointStorageLocation,
-				CheckpointMetrics checkpointMetrics) {
+			StreamTask<?, ?> owner,
+			CheckpointMetaData checkpointMetaData,
+			CheckpointOptions checkpointOptions,
+			CheckpointStreamFactory checkpointStorageLocation,
+			CheckpointMetrics checkpointMetrics) {
 
 			this.owner = Preconditions.checkNotNull(owner);
 			this.checkpointMetaData = Preconditions.checkNotNull(checkpointMetaData);
@@ -1280,10 +1320,10 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 			if (null != op) {
 
 				OperatorSnapshotFutures snapshotInProgress = op.snapshotState(
-						checkpointMetaData.getCheckpointId(),
-						checkpointMetaData.getTimestamp(),
-						checkpointOptions,
-						storageLocation);
+					checkpointMetaData.getCheckpointId(),
+					checkpointMetaData.getTimestamp(),
+					checkpointOptions,
+					storageLocation);
 				operatorSnapshotsInProgress.put(op.getOperatorID(), snapshotInProgress);
 			}
 		}
@@ -1297,8 +1337,8 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 
 	@VisibleForTesting
 	public static <OUT> List<RecordWriter<SerializationDelegate<StreamRecord<OUT>>>> createRecordWriters(
-			StreamConfig configuration,
-			Environment environment) {
+		StreamConfig configuration,
+		Environment environment) {
 		List<RecordWriter<SerializationDelegate<StreamRecord<OUT>>>> recordWriters = new ArrayList<>();
 		List<StreamEdge> outEdgesInOrder = configuration.getOutEdgesInOrder(environment.getUserClassLoader());
 		Map<Integer, StreamConfig> chainedConfigs = configuration.getTransitiveChainedTaskConfigsWithSelf(environment.getUserClassLoader());
@@ -1317,11 +1357,11 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 	}
 
 	private static <OUT> RecordWriter<SerializationDelegate<StreamRecord<OUT>>> createRecordWriter(
-			StreamEdge edge,
-			int outputIndex,
-			Environment environment,
-			String taskName,
-			long bufferTimeout) {
+		StreamEdge edge,
+		int outputIndex,
+		Environment environment,
+		String taskName,
+		long bufferTimeout) {
 		@SuppressWarnings("unchecked")
 		StreamPartitioner<OUT> outputPartitioner = (StreamPartitioner<OUT>) edge.getPartitioner();
 

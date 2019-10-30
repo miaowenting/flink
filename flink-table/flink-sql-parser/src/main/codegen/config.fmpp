@@ -32,10 +32,13 @@
 # Parser template file (Parser.jj) along with this file are packaged as
 # part of the calcite-core-<version>.jar under "codegen" directory.
 
+# calcite模板配置
 data: {
+  # calcite模板配置，引入parser模板文件
   parser: tdd(../data/Parser.tdd)
 }
 
+# freemarker模板的位置
 freemarkerLinks: {
   includes: includes/
 }

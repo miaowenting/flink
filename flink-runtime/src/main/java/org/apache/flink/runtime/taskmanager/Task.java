@@ -680,6 +680,7 @@ public class Task implements Runnable, TaskActions, PartitionProducerStateProvid
 			executingThread.setContextClassLoader(userCodeClassLoader);
 
 			// now load and instantiate the task's invokable code
+			// 加载并实例化实现AbstractInvokable的类，如StreamTask
 			invokable = loadAndInstantiateInvokable(userCodeClassLoader, nameOfInvokableClass, env);
 
 			// ----------------------------------------------------------------
@@ -691,6 +692,7 @@ public class Task implements Runnable, TaskActions, PartitionProducerStateProvid
 			this.invokable = invokable;
 
 			// switch to the RUNNING state, if that fails, we have been canceled/failed in the meantime
+			// 切换任务状态为Running
 			if (!transitionState(ExecutionState.DEPLOYING, ExecutionState.RUNNING)) {
 				throw new CancelTaskException();
 			}
@@ -702,6 +704,7 @@ public class Task implements Runnable, TaskActions, PartitionProducerStateProvid
 			executingThread.setContextClassLoader(userCodeClassLoader);
 
 			// run the invokable
+			// 调用StreamTask.invoke()
 			invokable.invoke();
 
 			// make sure, we enter the catch block if the task leaves the invoke() method due

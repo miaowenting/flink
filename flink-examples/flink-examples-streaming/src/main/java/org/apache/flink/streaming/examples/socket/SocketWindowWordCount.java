@@ -48,7 +48,6 @@ public class SocketWindowWordCount {
 		try {
 			final ParameterTool params = ParameterTool.fromArgs(args);
 			hostname = params.has("hostname") ? params.get("hostname") : "localhost";
-//			port = params.getInt("port");
 			port = 9999;
 		} catch (Exception e) {
 			System.err.println("No port specified. Please run 'SocketWindowWordCount " +
@@ -79,7 +78,7 @@ public class SocketWindowWordCount {
 			})
 
 			.keyBy("word")
-			.timeWindow(Time.seconds(5))
+			.timeWindow(Time.seconds(10))
 
 			.reduce(new ReduceFunction<WordWithCount>() {
 				// 统计单词个数

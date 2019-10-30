@@ -75,6 +75,7 @@ public class KeyedCoProcessOperator<K, IN1, IN2, OUT>
 	public void processElement1(StreamRecord<IN1> element) throws Exception {
 		collector.setTimestamp(element);
 		context.element = element;
+		// 调用UserFunction.processElement1()
 		userFunction.processElement1(element.getValue(), context, collector);
 		context.element = null;
 	}

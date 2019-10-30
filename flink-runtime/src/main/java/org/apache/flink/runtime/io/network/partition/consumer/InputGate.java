@@ -68,6 +68,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * subpartitions -- one for each parallel reduce subtask. As shown in the Figure, each reduce task
  * will have an input gate attached to it. This will provide its input, which will consist of one
  * subpartition from each partition of the intermediate result.
+ * subpartition与reduce task一一对应，每个reduce task有一个input gate
  */
 public abstract class InputGate implements AsyncDataInput<BufferOrEvent>, AutoCloseable {
 

@@ -223,9 +223,12 @@ public final class StreamTwoInputProcessor<IN1, IN2> implements StreamInputProce
 		while (true) {
 			if (currentRecordDeserializer != null) {
 				DeserializationResult result;
+				// 根据当前channel号决定使用哪个deserializer
 				if (currentChannel < numInputChannels1) {
+					// 反序列化IN1的数据
 					result = currentRecordDeserializer.getNextRecord(deserializationDelegate1);
 				} else {
+					// 反序列化IN2的数据
 					result = currentRecordDeserializer.getNextRecord(deserializationDelegate2);
 				}
 
@@ -235,7 +238,9 @@ public final class StreamTwoInputProcessor<IN1, IN2> implements StreamInputProce
 				}
 
 				if (result.isFullRecord()) {
+					// 处理IN1的数据
 					if (currentChannel < numInputChannels1) {
+						// 反序列化出的数据，是record 、watermark、stream status、latency marker
 						StreamElement recordOrWatermark = deserializationDelegate1.getInstance();
 						if (recordOrWatermark.isWatermark()) {
 							statusWatermarkValve1.inputWatermark(recordOrWatermark.asWatermark(), currentChannel);
@@ -262,6 +267,7 @@ public final class StreamTwoInputProcessor<IN1, IN2> implements StreamInputProce
 
 						}
 					}
+					// 处理IN1的数据
 					else {
 						StreamElement recordOrWatermark = deserializationDelegate2.getInstance();
 						if (recordOrWatermark.isWatermark()) {
