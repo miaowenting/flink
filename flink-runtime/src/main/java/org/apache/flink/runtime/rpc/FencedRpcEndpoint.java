@@ -89,7 +89,7 @@ public abstract class FencedRpcEndpoint<F extends Serializable> extends RpcEndpo
 	 * Returns a main thread executor which is bound to the currently valid fencing token.
 	 * This means that runnables which are executed with this executor fail after the fencing
 	 * token has changed. This allows to scope operations by the fencing token.
-	 *
+	 * 返回绑定到当前令牌的MainThreadExecutor
 	 * @return MainThreadExecutor bound to the current fencing token
 	 */
 	@Override

@@ -38,6 +38,7 @@ import java.util.List;
 
 /**
  * Class representing the operators in the streaming programs, with all their properties.
+ * 类，表示流程序中的运算符及其所有属性。
  */
 @Internal
 public class StreamNode implements Serializable {

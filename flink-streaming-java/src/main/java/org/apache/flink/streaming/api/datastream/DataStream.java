@@ -575,6 +575,10 @@ public class DataStream<T> {
 	 * {@link RichMapFunction} to gain access to other features provided by the
 	 * {@link org.apache.flink.api.common.functions.RichFunction} interface.
 	 *
+	 * 在DataStream中使用map的转换，这个转换对每一个元素调用了一个mapFunction，
+	 * 每一个MapFunction的调用仅返回了一个元素。
+	 * 用户可以通过继承RichMapFunction来获得其他RichFunction接口提供的其他功能。
+	 *
 	 * @param mapper
 	 *            The MapFunction that is called for each element of the
 	 *            DataStream.

@@ -488,12 +488,22 @@ public class TypeExtractor {
 	 * <p>1. By using the generics of the base class like MyFunction<X, Y, Z, IN, OUT>.
 	 *    This is what outputTypeArgumentIndex (in this example "4") is good for.
 	 *
+	 *   1.利用MyFunction<X，Y，Z，IN，Out等基类的泛型。
+	 *   这就是outputTypeArgumentIndex(在本例中“4”)的优点。
+	 *
 	 * <p>2. By using input type inference SubMyFunction<T, String, String, String, T>.
 	 *    This is what inputTypeArgumentIndex (in this example "0") and inType is good for.
+	 *
+	 *    2.采用输入型推理的方法实现子功能<T，String，T>。
+	 *      这就是inputTypeArgumentIndex(在本例中“0”)和inType的优点。
 	 *
 	 * <p>3. By using the static method that a compiler generates for Java lambdas.
 	 *    This is what lambdaOutputTypeArgumentIndices is good for. Given that MyFunction has
 	 *    the following single abstract method:
+	 *
+	 *    3.使用编译器为Java lambdas生成的静态方法。
+	 *    这就是lambdaOutputTypeArgumentIndice的优点。鉴于MyFunction有
+	 *    以下单一的抽象方法：
 	 *
 	 * <pre>
 	 * <code>
@@ -543,6 +553,7 @@ public class TypeExtractor {
 			"Indices for output type arguments within lambda not provided");
 
 		// explicit result type has highest precedence
+		// 明确结果有最高优先级
 		if (function instanceof ResultTypeQueryable) {
 			return ((ResultTypeQueryable<OUT>) function).getProducedType();
 		}

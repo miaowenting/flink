@@ -94,6 +94,8 @@ public class TypeExtractionUtils {
 	 * Checks if the given function has been implemented using a Java 8 lambda. If yes, a LambdaExecutable
 	 * is returned describing the method/constructor. Otherwise null.
 	 *
+	 * 检查给定函数是否已使用Java 8 lambda实现。如果是，则返回一个LambdaExecutable*，描述方法/构造函数。否则为空。
+	 *
 	 * @throws TypeExtractionException lambda extraction is pretty hacky, it might fail for unknown JVM issues.
 	 */
 	public static LambdaExecutable checkAndExtractLambda(Function function) throws TypeExtractionException {

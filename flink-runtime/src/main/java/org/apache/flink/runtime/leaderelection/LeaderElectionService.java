@@ -24,15 +24,19 @@ import java.util.UUID;
 
 /**
  * Interface for a service which allows to elect a leader among a group of contenders.
+ * 在一组竞争者中选举出一个leader
  *
  * Prior to using this service, it has to be started calling the start method. The start method
  * takes the contender as a parameter. If there are multiple contenders, then each contender has
  * to instantiate its own leader election service.
+ * 在使用此服务之前，必须开始调用start方法。start方法将竞争者作为参数。如果有多个竞争者，那么每个竞争者都必须实例化自己的领导人选举服务。
  *
  * Once a contender has been granted leadership he has to confirm the received leader session ID
  * by calling the method confirmLeaderSessionID. This will notify the leader election service, that
  * the contender has received the new leader session ID and that it can now be published for
  * leader retrieval services.
+ *
+ * 一旦一个竞争者被授予领导地位，他就必须通过调用方法concermLeaderSessionID来确认接收到的领导者会话ID。这将通知领导人选举服务，竞争者已经收到新的领导人会话ID，并且它现在可以发布为领导人检索服务。
  */
 public interface LeaderElectionService {
 
@@ -65,6 +69,7 @@ public interface LeaderElectionService {
 	/**
 	 * Returns true if the {@link LeaderContender} with which the service has been started owns
 	 * currently the leadership under the given leader session id.
+	 * 判断是否在当前的leader下面
 	 *
 	 * @param leaderSessionId identifying the current leader
 	 *

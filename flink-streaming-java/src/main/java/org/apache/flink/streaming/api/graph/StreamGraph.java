@@ -332,8 +332,12 @@ public class StreamGraph extends StreamingPlan {
 	 * Adds a new virtual node that is used to connect a downstream vertex to only the outputs
 	 * with the selected names.
 	 *
+	 * 添加一个新的虚拟节点，该节点用于将下游顶点连接到仅输出的节点  加上选定的姓名。
+	 *
 	 * <p>When adding an edge from the virtual node to a downstream node the connection will be made
 	 * to the original node, only with the selected names given here.
+	 *
+	 * 当将边缘从虚拟节点添加到下游节点时，将连接到原始节点，仅使用此处给出的选定名称。
 	 *
 	 * @param originalId ID of the node that should be connected to.
 	 * @param virtualId ID of the virtual node.
@@ -352,6 +356,9 @@ public class StreamGraph extends StreamingPlan {
 	/**
 	 * Adds a new virtual node that is used to connect a downstream vertex to only the outputs with
 	 * the selected side-output {@link OutputTag}.
+	 *
+	 * 添加一个新的虚拟节点，用于将下游顶点连接到仅具有
+	 * 所选侧输出{@link OutputTag}的输出。
 	 *
 	 * @param originalId ID of the node that should be connected to.
 	 * @param virtualId ID of the virtual node.
@@ -447,8 +454,10 @@ public class StreamGraph extends StreamingPlan {
 			OutputTag outputTag,
 			ShuffleMode shuffleMode) {
 
+		// 当上游是select时，递归调用，并传入select信息
 		if (virtualSideOutputNodes.containsKey(upStreamVertexID)) {
 			int virtualId = upStreamVertexID;
+			// select上游的节点id
 			upStreamVertexID = virtualSideOutputNodes.get(virtualId).f0;
 			if (outputTag == null) {
 				outputTag = virtualSideOutputNodes.get(virtualId).f1;
@@ -462,6 +471,7 @@ public class StreamGraph extends StreamingPlan {
 				outputNames = virtualSelectNodes.get(virtualId).f1;
 			}
 			addEdgeInternal(upStreamVertexID, downStreamVertexID, typeNumber, partitioner, outputNames, outputTag, shuffleMode);
+			// 当上游是partition时，递归调用，并传入partitioner信息
 		} else if (virtualPartitionNodes.containsKey(upStreamVertexID)) {
 			int virtualId = upStreamVertexID;
 			upStreamVertexID = virtualPartitionNodes.get(virtualId).f0;
@@ -471,9 +481,11 @@ public class StreamGraph extends StreamingPlan {
 			shuffleMode = virtualPartitionNodes.get(virtualId).f2;
 			addEdgeInternal(upStreamVertexID, downStreamVertexID, typeNumber, partitioner, outputNames, outputTag, shuffleMode);
 		} else {
+			// 真正构建StreamEdge
 			StreamNode upstreamNode = getStreamNode(upStreamVertexID);
 			StreamNode downstreamNode = getStreamNode(downStreamVertexID);
 
+			// 未指定partitioner的话，会为其选择 forward 或 rebalance 分区。
 			// If no partitioner was specified and the parallelism of upstream and downstream
 			// operator matches use forward partitioning, use rebalance otherwise.
 			if (partitioner == null && upstreamNode.getParallelism() == downstreamNode.getParallelism()) {
@@ -482,6 +494,7 @@ public class StreamGraph extends StreamingPlan {
 				partitioner = new RebalancePartitioner<Object>();
 			}
 
+			// 健康检查， forward 分区必须要上下游的并发度一致
 			if (partitioner instanceof ForwardPartitioner) {
 				if (upstreamNode.getParallelism() != downstreamNode.getParallelism()) {
 					throw new UnsupportedOperationException("Forward partitioning does not allow " +
@@ -495,8 +508,10 @@ public class StreamGraph extends StreamingPlan {
 				shuffleMode = ShuffleMode.UNDEFINED;
 			}
 
+			// 创建 StreamEdge
 			StreamEdge edge = new StreamEdge(upstreamNode, downstreamNode, typeNumber, outputNames, partitioner, outputTag, shuffleMode);
 
+			// 将该 StreamEdge 添加到上游的输出，下游的输入
 			getStreamNode(edge.getSourceId()).addOutEdge(edge);
 			getStreamNode(edge.getTargetId()).addInEdge(edge);
 		}

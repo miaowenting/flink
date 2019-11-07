@@ -27,6 +27,7 @@ import org.apache.flink.util.Preconditions;
 
 /**
  * A deployment descriptor for an existing cluster.
+ * 现有集群的部署描述符。
  */
 public class StandaloneClusterDescriptor implements ClusterDescriptor<StandaloneClusterId> {
 

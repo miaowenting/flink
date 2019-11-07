@@ -634,18 +634,21 @@ public class StreamGraphGenerator {
 	 *
 	 * <p>This recursively transforms the inputs, creates a new {@code StreamNode} in the graph and
 	 * wired the inputs to this new node.
+	 *
+	 * 这递归地转换输入，在图中创建一个新的{@code StreamNode}，并将输入连接到这个新节点。
 	 */
 	private <IN, OUT> Collection<Integer> transformOneInputTransform(OneInputTransformation<IN, OUT> transform) {
-
+		//递归对该transform的直接上游transform进行转换，获得直接上游id集合
 		Collection<Integer> inputIds = transform(transform.getInput());
 
 		// the recursive call might have already transformed this
+		// 递归调用可能已经处理过该transform了
 		if (alreadyTransformed.containsKey(transform)) {
 			return alreadyTransformed.get(transform);
 		}
 
 		String slotSharingGroup = determineSlotSharingGroup(transform.getSlotSharingGroup(), inputIds);
-
+		// 添加 StreamNode
 		streamGraph.addOperator(transform.getId(),
 				slotSharingGroup,
 				transform.getCoLocationGroupKey(),
@@ -664,6 +667,7 @@ public class StreamGraphGenerator {
 		streamGraph.setParallelism(transform.getId(), parallelism);
 		streamGraph.setMaxParallelism(transform.getId(), transform.getMaxParallelism());
 
+		// 添加 StreamEdge
 		for (Integer inputId: inputIds) {
 			streamGraph.addEdge(inputId, transform.getId(), 0);
 		}

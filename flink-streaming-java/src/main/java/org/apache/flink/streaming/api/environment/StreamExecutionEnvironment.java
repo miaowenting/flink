@@ -1558,6 +1558,12 @@ public abstract class StreamExecutionEnvironment {
 	 * flow graph. Note that this needs to be called, before the plan is
 	 * executed.
 	 *
+	 *
+	 * 创建系统执行程序的计划，
+	 * 使用执行数据
+	 * 流图的JSON表示将其返回为字符串。注意，在计划
+	 * 执行之前，需要调用它。
+	 *
 	 * @return The execution plan of the program, as a JSON String.
 	 */
 	public String getExecutionPlan() {

@@ -61,6 +61,7 @@ public class FunctionUtils {
 
 	/**
 	 * Convert at {@link FunctionWithException} into a {@link Function}.
+	 * 转变functionWithException到Function
 	 *
 	 * @param functionWithException function with exception to convert into a function
 	 * @param <A> input type

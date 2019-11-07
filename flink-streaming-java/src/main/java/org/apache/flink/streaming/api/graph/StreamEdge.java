@@ -31,6 +31,8 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * An edge in the streaming topology. One edge like this does not necessarily
  * gets converted to a connection between two job vertices (due to
  * chaining/optimization).
+ *
+ * 流拓扑中的边缘。这样的一个边不一定被转换成两个作业顶点之间的连接(由于链接/优化)。
  */
 @Internal
 public class StreamEdge implements Serializable {

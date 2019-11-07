@@ -97,16 +97,19 @@ public class StreamingJobGraphGenerator {
 	// ------------------------------------------------------------------------
 
 	private final StreamGraph streamGraph;
-
+	// id -> JobVertex
 	private final Map<Integer, JobVertex> jobVertices;
 	private final JobGraph jobGraph;
+	// 已经构建的JobVertex的id集合
 	private final Collection<Integer> builtVertices;
 
+	// 物理边集合（排除了chain内部的边）, 按创建顺序排序
 	private final List<StreamEdge> physicalEdgesInOrder;
-
+	// 保存chain信息，部署时用来构建 OperatorChain，startNodeId -> (currentNodeId -> StreamConfig)
 	private final Map<Integer, Map<Integer, StreamConfig>> chainedConfigs;
-
+	// 所有节点的配置信息，id -> StreamConfig
 	private final Map<Integer, StreamConfig> vertexConfigs;
+	// 保存每个节点的名字，id -> chainedName
 	private final Map<Integer, String> chainedNames;
 
 	private final Map<Integer, ResourceSpec> chainedMinResources;
@@ -116,7 +119,7 @@ public class StreamingJobGraphGenerator {
 
 	private final StreamGraphHasher defaultStreamGraphHasher;
 	private final List<StreamGraphHasher> legacyStreamGraphHashers;
-
+	// 构造函数，入参只有 StreamGraph
 	private StreamingJobGraphGenerator(StreamGraph streamGraph) {
 		this(streamGraph, null);
 	}
@@ -138,9 +141,10 @@ public class StreamingJobGraphGenerator {
 
 		jobGraph = new JobGraph(jobID, streamGraph.getJobName());
 	}
-
+	// 根据 StreamGraph，生成 JobGraph
 	private JobGraph createJobGraph() {
 
+		// streaming 模式下，调度模式是所有节点（vertices）一起启动
 		// make sure that all vertices start immediately
 		jobGraph.setScheduleMode(streamGraph.getScheduleMode());
 
@@ -149,19 +153,25 @@ public class StreamingJobGraphGenerator {
 		Map<Integer, byte[]> hashes = defaultStreamGraphHasher.traverseStreamGraphAndGenerateHashes(streamGraph);
 
 		// Generate legacy version hashes for backwards compatibility
+		// 广度优先遍历 StreamGraph 并且为每个SteamNode生成hash id，
+		// 保证如果提交的拓扑没有改变，则每次生成的hash都是一样的
 		List<Map<Integer, byte[]>> legacyHashes = new ArrayList<>(legacyStreamGraphHashers.size());
 		for (StreamGraphHasher hasher : legacyStreamGraphHashers) {
 			legacyHashes.add(hasher.traverseStreamGraphAndGenerateHashes(streamGraph));
 		}
 
 		Map<Integer, List<Tuple2<byte[], byte[]>>> chainedOperatorHashes = new HashMap<>();
-
+		// 最重要的函数，生成JobVertex，JobEdge等，并尽可能地将多个节点chain在一起
 		setChaining(hashes, legacyHashes, chainedOperatorHashes);
 
+		// 将每个JobVertex的入边集合也序列化到该JobVertex的StreamConfig中
+		// (出边集合已经在setChaining的时候写入了)
 		setPhysicalEdges();
 
+		// 根据group name，为每个 JobVertex 指定所属的 SlotSharingGroup
+		// 以及针对 Iteration的头尾设置  CoLocationGroup
 		setSlotSharingAndCoLocation();
-
+		// 配置checkpoint
 		configureCheckpointing();
 
 		JobGraphGenerator.addUserArtifactEntries(streamGraph.getUserArtifacts(), jobGraph);

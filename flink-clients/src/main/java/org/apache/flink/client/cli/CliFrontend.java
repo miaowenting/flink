@@ -221,6 +221,7 @@ public class CliFrontend {
 			final ClusterClient<T> client;
 
 			// directly deploy the job if the cluster is started in job mode and detached
+			// 如果集群以作业模式启动并分离，则直接部署作业。
 			if (clusterId == null && runOptions.getDetachedMode()) {
 				int parallelism = runOptions.getParallelism() == -1 ? defaultParallelism : runOptions.getParallelism();
 

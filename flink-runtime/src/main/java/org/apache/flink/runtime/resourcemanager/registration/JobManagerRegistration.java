@@ -26,6 +26,7 @@ import org.apache.flink.util.Preconditions;
 
 /**
  * Container for JobManager related registration information, such as the leader id or the job id.
+ * 用于JobManager相关注册信息的容器，如leaderID或jobID。
  */
 public class JobManagerRegistration {
 	private final JobID jobID;

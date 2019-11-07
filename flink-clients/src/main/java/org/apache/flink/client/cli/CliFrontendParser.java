@@ -35,6 +35,7 @@ import java.util.Collection;
 /**
  * A simple command line parser (based on Apache Commons CLI) that extracts command
  * line options.
+ * 一个简单的命令行解析器(基于ApacheCommonsCLI)，它提取命令行选项。
  */
 public class CliFrontendParser {
 

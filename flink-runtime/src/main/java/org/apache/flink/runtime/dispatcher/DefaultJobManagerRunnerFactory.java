@@ -40,6 +40,7 @@ import org.apache.flink.runtime.shuffle.ShuffleServiceLoader;
 
 /**
  * Singleton default factory for {@link JobManagerRunner}.
+ * jobManagerRunner，默认的单例工厂类
  */
 public enum DefaultJobManagerRunnerFactory implements JobManagerRunnerFactory {
 	INSTANCE;
@@ -62,6 +63,7 @@ public enum DefaultJobManagerRunnerFactory implements JobManagerRunnerFactory {
 		final SchedulerNGFactory schedulerNGFactory = SchedulerNGFactoryFactory.createSchedulerNGFactory(configuration, jobManagerServices.getRestartStrategyFactory());
 		final ShuffleMaster<?> shuffleMaster = ShuffleServiceLoader.loadShuffleServiceFactory(configuration).createShuffleMaster(configuration);
 
+		//根据参数创建jobMasterFactory
 		final JobMasterServiceFactory jobMasterFactory = new DefaultJobMasterServiceFactory(
 			jobMasterConfiguration,
 			slotPoolFactory,
@@ -74,7 +76,7 @@ public enum DefaultJobManagerRunnerFactory implements JobManagerRunnerFactory {
 			fatalErrorHandler,
 			schedulerNGFactory,
 			shuffleMaster);
-
+		//创建jobManager
 		return new JobManagerRunner(
 			jobGraph,
 			jobMasterFactory,

@@ -56,6 +56,8 @@ public class ClosureCleaner {
 	 * Tries to clean the closure of the given object, if the object is a non-static inner
 	 * class.
 	 *
+	 * 如果对象是非静态内部类，则尝试清除给定对象的闭包。
+	 *
 	 * @param func The object whose closure should be cleaned.
 	 * @param level the clean up level.
 	 * @param checkSerializable Flag to indicate whether serializability should be checked after
@@ -181,6 +183,13 @@ public class ClosureCleaner {
 		}
 	}
 
+	/**
+	 * 初始化func类中的this0Name并初始化为null
+	 * @param func
+	 * @param cls
+	 * @param this0Name
+	 * @return
+	 */
 	private static boolean cleanThis0(Object func, Class<?> cls, String this0Name) {
 
 		This0AccessFinder this0Finder = new This0AccessFinder(this0Name);
@@ -200,7 +209,7 @@ public class ClosureCleaner {
 				// has no this$0, just return
 				throw new RuntimeException("Could not set " + this0Name + ": " + e);
 			}
-
+			//将反射得到的字段设置为允许可以修改，并将此字段的值初始化为null
 			try {
 				this0.setAccessible(true);
 				this0.set(func, null);

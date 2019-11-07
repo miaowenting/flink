@@ -29,11 +29,13 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * Gateway to report key-value state registration and deregistrations.
+ * 网关报告键值状态注册和注销.
  */
 public interface KvStateRegistryGateway {
 
 	/**
 	 * Notifies that queryable state has been registered.
+	 * 通知查询状态已注册
 	 *
 	 * @param jobId	identifying the job for which to register a key value state
 	 * @param jobVertexId JobVertexID the KvState instance belongs to.
@@ -53,6 +55,7 @@ public interface KvStateRegistryGateway {
 
 	/**
 	 * Notifies that queryable state has been unregistered.
+	 * 通知查询状态已未注册
 	 *
 	 * @param jobId	identifying the job for which to unregister a key value state
 	 * @param jobVertexId JobVertexID the KvState instance belongs to.

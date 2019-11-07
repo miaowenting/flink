@@ -43,6 +43,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
  * Netty based shuffle service implementation.
+ * 基于Netty的洗牌服务实现。
  */
 public class NettyShuffleServiceFactory implements ShuffleServiceFactory<NettyShuffleDescriptor, ResultPartition, SingleInputGate> {
 

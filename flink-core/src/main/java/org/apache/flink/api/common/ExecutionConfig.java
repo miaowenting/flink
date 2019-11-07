@@ -1083,16 +1083,20 @@ public class ExecutionConfig implements Serializable, Archiveable<ArchivedExecut
 	public enum ClosureCleanerLevel {
 		/**
 		 * Disable the closure cleaner completely.
+		 * 完全关闭清洁
 		 */
 		NONE,
 
 		/**
 		 * Clean only the top-level class without recursing into fields.
+		 * 只清洁顶层的类，不包括递归的列
+		 *
 		 */
 		TOP_LEVEL,
 
 		/**
 		 * Clean all the fields recursively.
+		 * 递归的清除所有的列
 		 */
 		RECURSIVE
 	}

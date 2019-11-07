@@ -42,6 +42,8 @@ import static org.apache.flink.util.Preconditions.checkState;
  * An implementation of the {@link LeaderElectionService} interface that handles a single
  * leader contender. When started, this service immediately grants the contender the leadership.
  *
+ * 当选举开始，这个类立即把竞争者赋予leader权限
+ *
  * <p>The implementation accepts a single static leader session ID and is hence compatible with
  * pre-configured single leader (no leader failover) setups.
  *

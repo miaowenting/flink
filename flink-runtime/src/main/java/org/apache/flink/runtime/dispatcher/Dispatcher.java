@@ -259,6 +259,12 @@ public abstract class Dispatcher extends FencedRpcEndpoint<DispatcherId> impleme
 	// RPCs
 	//------------------------------------------------------
 
+	/**
+	 * 提交任务
+	 * @param jobGraph JobGraph to submit
+	 * @param timeout RPC timeout
+	 * @return
+	 */
 	@Override
 	public CompletableFuture<Acknowledge> submitJob(JobGraph jobGraph, Time timeout) {
 		log.info("Received JobGraph submission {} ({}).", jobGraph.getJobID(), jobGraph.getName());
@@ -317,9 +323,14 @@ public abstract class Dispatcher extends FencedRpcEndpoint<DispatcherId> impleme
 		return false;
 	}
 
+	/**
+	 * 内部提交
+	 * @param jobGraph
+	 * @return
+	 */
 	private CompletableFuture<Acknowledge> internalSubmitJob(JobGraph jobGraph) {
 		log.info("Submitting job {} ({}).", jobGraph.getJobID(), jobGraph.getName());
-
+		//调用persistAndRunJob进行提交任务
 		final CompletableFuture<Acknowledge> persistAndRunFuture = waitForTerminatingJobManager(jobGraph.getJobID(), jobGraph, this::persistAndRunJob)
 			.thenApply(ignored -> Acknowledge.get());
 
@@ -339,7 +350,7 @@ public abstract class Dispatcher extends FencedRpcEndpoint<DispatcherId> impleme
 
 	private CompletableFuture<Void> persistAndRunJob(JobGraph jobGraph) throws Exception {
 		submittedJobGraphStore.putJobGraph(new SubmittedJobGraph(jobGraph));
-
+		//任务执行
 		final CompletableFuture<Void> runJobFuture = runJob(jobGraph);
 
 		return runJobFuture.whenComplete(BiConsumerWithException.unchecked((Object ignored, Throwable throwable) -> {
@@ -349,9 +360,14 @@ public abstract class Dispatcher extends FencedRpcEndpoint<DispatcherId> impleme
 		}));
 	}
 
+	/**
+	 * 执行任务
+	 * @param jobGraph
+	 * @return
+	 */
 	private CompletableFuture<Void> runJob(JobGraph jobGraph) {
 		Preconditions.checkState(!jobManagerRunnerFutures.containsKey(jobGraph.getJobID()));
-
+		//创建jobManager
 		final CompletableFuture<JobManagerRunner> jobManagerRunnerFuture = createJobManagerRunner(jobGraph);
 
 		jobManagerRunnerFutures.put(jobGraph.getJobID(), jobManagerRunnerFuture);
@@ -367,6 +383,11 @@ public abstract class Dispatcher extends FencedRpcEndpoint<DispatcherId> impleme
 				getMainThreadExecutor());
 	}
 
+	/**
+	 * 创建jobManager
+	 * @param jobGraph
+	 * @return
+	 */
 	private CompletableFuture<JobManagerRunner> createJobManagerRunner(JobGraph jobGraph) {
 		final RpcService rpcService = getRpcService();
 
@@ -617,9 +638,10 @@ public abstract class Dispatcher extends FencedRpcEndpoint<DispatcherId> impleme
 	/**
 	 * Cleans up the job related data from the dispatcher. If cleanupHA is true, then
 	 * the data will also be removed from HA.
+	 * 从调度程序清除作业相关数据。如果Cleanupa为真，则数据也将从HA中删除。
 	 *
 	 * @param jobId JobID identifying the job to clean up
-	 * @param cleanupHA True iff HA data shall also be cleaned up
+	 * @param cleanupHA True iff HA data shall also be cleaned up 如果为true那么HA的data也会被清除
 	 */
 	private void removeJobAndRegisterTerminationFuture(JobID jobId, boolean cleanupHA) {
 		final CompletableFuture<Void> cleanupFuture = removeJob(jobId, cleanupHA);

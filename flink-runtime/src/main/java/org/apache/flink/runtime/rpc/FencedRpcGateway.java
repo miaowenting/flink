@@ -23,6 +23,7 @@ import java.io.Serializable;
 /**
  * Fenced {@link RpcGateway}. This gateway allows to have access to the associated
  * fencing token.
+ * fencedRpcGateway，允许我们获得"击剑"令牌
  *
  * @param <F> type of the fencing token
  */

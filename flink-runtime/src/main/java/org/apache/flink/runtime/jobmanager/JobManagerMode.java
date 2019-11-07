@@ -20,18 +20,21 @@ package org.apache.flink.runtime.jobmanager;
 
 /**
  * The startup mode for the JobManager.
+ * jobmanager 的启动模式
  */
 public enum JobManagerMode {
 
 	/**
 	 * Causes the JobManager to operate in single user mode and
 	 * start a local embedded TaskManager.
+	 * 使JobManager在单用户模式下操作，并启动本地嵌入式TaskManager。
 	 */
 	LOCAL,
 
 	/**
 	 * Starts the JobManager in the regular mode where it waits for external TaskManagers
 	 * to connect.
+	 * 在常规模式下启动JobManager，等待外部任务管理器连接。
 	 */
 	CLUSTER
 }

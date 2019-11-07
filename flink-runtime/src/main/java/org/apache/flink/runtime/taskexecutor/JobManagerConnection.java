@@ -30,6 +30,7 @@ import org.apache.flink.util.Preconditions;
 
 /**
  * Container class for JobManager specific communication utils used by the {@link TaskExecutor}.
+ * 用于{@link TaskExecutor}使用的JobManager特定通信实用程序的容器类
  */
 public class JobManagerConnection {
 

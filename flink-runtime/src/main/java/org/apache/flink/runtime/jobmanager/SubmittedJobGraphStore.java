@@ -27,6 +27,7 @@ import java.util.Collection;
 
 /**
  * {@link SubmittedJobGraph} instances for recovery.
+ * submitJobGraph的实例恢复
  */
 public interface SubmittedJobGraphStore {
 

@@ -29,6 +29,7 @@ import javax.annotation.Nullable;
 
 /**
  * Custom command-line interface to load hooks for the command-line interface.
+ * 自定义命令行接口，以加载命令行接口的钩子.
  */
 public interface CustomCommandLine<T> {
 
