@@ -3582,6 +3582,7 @@ class ScalarFunctionsTest extends ScalarTypesTestBase {
     testSqlApi("to_timestamp('2017-09-15', 'yyyy-MM-dd')", "2017-09-15 00:00:00.000")
     // test with null input
     testSqlApi("to_timestamp(cast(null as varchar))", "null")
+    testSqlApi("to_timestamp('1560823230000','yyyy-MM-dd HH:mm:ss')","null")
   }
 
   @Test

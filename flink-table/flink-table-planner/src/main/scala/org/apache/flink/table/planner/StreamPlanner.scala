@@ -153,6 +153,7 @@ class StreamPlanner(
       case catalogSink: CatalogSinkModifyOperation =>
         getTableSink(catalogSink.getTablePath)
           .map(sink => {
+            //
             TableSinkUtils.validateSink(
               catalogSink.getStaticPartitions,
               catalogSink.getChild,

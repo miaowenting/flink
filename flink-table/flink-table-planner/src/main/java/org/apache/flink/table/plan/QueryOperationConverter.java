@@ -126,7 +126,9 @@ public class QueryOperationConverter extends QueryOperationDefaultVisitor<RelNod
 
 	@Override
 	public RelNode defaultMethod(QueryOperation other) {
+		// 遍历 insert into 对应的 query 语句的孩子节点
 		other.getChildren().forEach(child -> relBuilder.push(child.accept(this)));
+		// 返回 query 语句的 calciteTree
 		return other.accept(singleRelVisitor);
 	}
 

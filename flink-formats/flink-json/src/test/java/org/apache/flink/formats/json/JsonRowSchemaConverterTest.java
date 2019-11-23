@@ -43,11 +43,25 @@ public class JsonRowSchemaConverterTest {
 		final TypeInformation<?> result = JsonRowSchemaConverter.convert(schema);
 
 		final TypeInformation<?> expected = Types.ROW_NAMED(
-			new String[] {"fn", "familyName", "additionalName", "tuples", "honorificPrefix", "url",
-				"email", "tel", "sound", "org"},
-			Types.STRING, Types.STRING, Types.BOOLEAN, Types.ROW(Types.BIG_DEC, Types.STRING, Types.STRING, Types.STRING),
-			Types.OBJECT_ARRAY(Types.STRING), Types.STRING, Types.ROW_NAMED(new String[] {"type", "value"}, Types.STRING, Types.STRING),
-			Types.ROW_NAMED(new String[] {"type", "value"}, Types.BIG_DEC, Types.STRING), Types.VOID,
+			new String[] {"fn",
+				"familyName",
+				"additionalName",
+				"tuples",
+				"honorificPrefix",
+				"url",
+				"email",
+				"tel",
+				"sound",
+				"org"},
+			Types.STRING,
+			Types.STRING,
+			Types.BOOLEAN,
+			Types.ROW(Types.BIG_DEC, Types.STRING, Types.STRING, Types.STRING),
+			Types.OBJECT_ARRAY(Types.STRING),
+			Types.STRING,
+			Types.ROW_NAMED(new String[] {"type", "value"}, Types.STRING, Types.STRING),
+			Types.ROW_NAMED(new String[] {"type", "value"}, Types.BIG_DEC, Types.STRING),
+			Types.VOID,
 			Types.ROW_NAMED(new String[] {"organizationUnit"}, Types.ROW()));
 
 		assertEquals(expected, result);

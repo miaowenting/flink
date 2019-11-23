@@ -47,6 +47,41 @@ class JoinTest extends TableTestBase {
     'c.rowtime,
     'proctime.proctime)
 
+  private val table_source1 = streamUtil.addTable[(Int, String, Long)](
+    "table_source1",
+    'a,
+    'b,
+    'c)
+
+  private val table_source2 = streamUtil.addTable[(Int, String, Long)](
+    "table_source2",
+    'a,
+    'b,
+    'c)
+
+  private val table_source3 = streamUtil.addTable[(Int, String, Long)](
+    "table_source3",
+    'a,
+    'b,
+    'c)
+
+  /**
+    * 测试连续join的情况下，会不会找不到表
+    */
+  @Test
+  def testContinuousJoin(): Unit = {
+
+    val sqlQuery =
+      """
+        |SELECT t1.a, t2.b, t3.c
+        |FROM table_source1 t1
+        |  JOIN table_source2 t2 ON t1.a = t2.a
+        |  JOIN table_source3 t3 ON t1.a = t3.a
+        |""".stripMargin
+
+    streamUtil.verifySql(sqlQuery, null)
+  }
+
   // Tests for inner join
   @Test
   def testProcessingTimeInnerJoinWithOnClause(): Unit = {

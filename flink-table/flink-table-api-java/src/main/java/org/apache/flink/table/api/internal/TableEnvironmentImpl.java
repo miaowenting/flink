@@ -302,6 +302,7 @@ public class TableEnvironmentImpl implements TableEnvironment {
 				"Unsupported SQL query! sqlQuery() only accepts a single SQL query.");
 		}
 
+		// 直接取得列表的第一个
 		Operation operation = operations.get(0);
 
 		if (operation instanceof QueryOperation && !(operation instanceof ModifyOperation)) {

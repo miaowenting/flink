@@ -27,6 +27,8 @@ import org.apache.calcite.rel.RelNode
 
 /**
   * Override the default convention implementation to support using AbstractConverter for conversion
+  * 转换特征
+  * 用于转化RelNode
   */
 class FlinkConvention(name: String, relClass: Class[_ <: RelNode])
   extends Convention.Impl(name, relClass) {

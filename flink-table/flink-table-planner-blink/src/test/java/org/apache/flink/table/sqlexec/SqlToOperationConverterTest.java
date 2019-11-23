@@ -35,6 +35,7 @@ import org.apache.flink.table.catalog.exceptions.TableAlreadyExistException;
 import org.apache.flink.table.catalog.exceptions.TableNotExistException;
 import org.apache.flink.table.operations.CatalogSinkModifyOperation;
 import org.apache.flink.table.operations.Operation;
+import org.apache.flink.table.operations.QueryOperation;
 import org.apache.flink.table.operations.ddl.CreateTableOperation;
 import org.apache.flink.table.planner.calcite.FlinkPlannerImpl;
 import org.apache.flink.table.planner.catalog.CatalogManagerCalciteSchema;
@@ -48,11 +49,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static org.apache.calcite.jdbc.CalciteSchemaBuilder.asRootSchema;
@@ -87,7 +84,7 @@ public class SqlToOperationConverterTest {
 			.build();
 		Map<String, String> properties = new HashMap<>();
 		properties.put("connector", "COLLECTION");
-		final CatalogTable catalogTable =  new CatalogTableImpl(tableSchema, properties, "");
+		final CatalogTable catalogTable = new CatalogTableImpl(tableSchema, properties, "");
 		catalog.createTable(path1, catalogTable, true);
 		catalog.createTable(path2, catalogTable, true);
 	}
@@ -120,7 +117,7 @@ public class SqlToOperationConverterTest {
 		CatalogTable catalogTable = op.getCatalogTable();
 		assertEquals(Arrays.asList("a", "d"), catalogTable.getPartitionKeys());
 		assertArrayEquals(catalogTable.getSchema().getFieldNames(),
-			new String[] {"a", "b", "c", "d"});
+			new String[]{"a", "b", "c", "d"});
 		assertArrayEquals(catalogTable.getSchema().getFieldDataTypes(),
 			new DataType[]{
 				DataTypes.BIGINT(),
@@ -188,6 +185,14 @@ public class SqlToOperationConverterTest {
 		final Map<String, String> expectedStaticPartitions = new HashMap<>();
 		expectedStaticPartitions.put("a", "1");
 		assertEquals(expectedStaticPartitions, sinkModifyOperation.getStaticPartitions());
+		// get child
+		QueryOperation queryOperation = sinkModifyOperation.getChild();
+		TableSchema tableSchema = queryOperation.getTableSchema();
+		System.out.println(tableSchema);
+		List<QueryOperation> children = queryOperation.getChildren();
+		for (QueryOperation child : children) {
+			System.out.println(child.getTableSchema());
+		}
 	}
 
 	private Operation parse(String sql, FlinkPlannerImpl planner) {
