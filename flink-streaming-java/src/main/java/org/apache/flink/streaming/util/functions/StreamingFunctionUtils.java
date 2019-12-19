@@ -174,6 +174,7 @@ public final class StreamingFunctionUtils {
 			StateInitializationContext context,
 			Function userFunction) throws Exception {
 
+		// 继承了CheckpointedFunction的userFunction
 		if (userFunction instanceof CheckpointedFunction) {
 			((CheckpointedFunction) userFunction).initializeState(context);
 

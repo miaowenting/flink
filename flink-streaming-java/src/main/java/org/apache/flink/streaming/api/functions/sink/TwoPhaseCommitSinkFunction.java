@@ -67,28 +67,37 @@ import static org.apache.flink.util.Preconditions.checkState;
  * {@link CheckpointListener}. User should provide custom {@code TXN} (transaction handle) and implement abstract
  * methods handling this transaction handle.
  *
- * @param <IN> Input type for {@link SinkFunction}.
- * @param <TXN> Transaction to store all of the information required to handle a transaction.
+ * @param <IN>      Input type for {@link SinkFunction}.
+ * @param <TXN>     Transaction to store all of the information required to handle a transaction.
  * @param <CONTEXT> Context that will be shared across all invocations for the given {@link TwoPhaseCommitSinkFunction}
- *                 instance. Context is created once
+ *                  instance. Context is created once
  */
 @PublicEvolving
 public abstract class TwoPhaseCommitSinkFunction<IN, TXN, CONTEXT>
-		extends RichSinkFunction<IN>
-		implements CheckpointedFunction, CheckpointListener {
+	extends RichSinkFunction<IN>
+	implements CheckpointedFunction, CheckpointListener {
 
 	private static final Logger LOG = LoggerFactory.getLogger(TwoPhaseCommitSinkFunction.class);
 
+	/**
+	 * 待提交的事务集合 <checkpointId,TransactionHolder>
+	 */
 	protected final LinkedHashMap<Long, TransactionHolder<TXN>> pendingCommitTransactions = new LinkedHashMap<>();
 
 	protected transient Optional<CONTEXT> userContext;
 
+	/**
+	 * ListState
+	 */
 	protected transient ListState<State<TXN, CONTEXT>> state;
 
 	private final Clock clock;
 
 	private final ListStateDescriptor<State<TXN, CONTEXT>> stateDescriptor;
 
+	/**
+	 * 当前事务的封装类
+	 */
 	private TransactionHolder<TXN> currentTransactionHolder;
 
 	/**
@@ -119,11 +128,11 @@ public abstract class TwoPhaseCommitSinkFunction<IN, TXN, CONTEXT>
 	 * </pre>
 	 *
 	 * @param transactionSerializer {@link TypeSerializer} for the transaction type of this sink
-	 * @param contextSerializer {@link TypeSerializer} for the context type of this sink
+	 * @param contextSerializer     {@link TypeSerializer} for the context type of this sink
 	 */
 	public TwoPhaseCommitSinkFunction(
-			TypeSerializer<TXN> transactionSerializer,
-			TypeSerializer<CONTEXT> contextSerializer) {
+		TypeSerializer<TXN> transactionSerializer,
+		TypeSerializer<CONTEXT> contextSerializer) {
 		this(transactionSerializer, contextSerializer, Clock.systemUTC());
 	}
 
@@ -220,7 +229,8 @@ public abstract class TwoPhaseCommitSinkFunction<IN, TXN, CONTEXT>
 	 * This should not be implemented by subclasses.
 	 */
 	@Override
-	public final void invoke(IN value) throws Exception {}
+	public final void invoke(IN value) throws Exception {
+	}
 
 	@Override
 	public final void invoke(
@@ -271,6 +281,7 @@ public abstract class TwoPhaseCommitSinkFunction<IN, TXN, CONTEXT>
 			Map.Entry<Long, TransactionHolder<TXN>> entry = pendingTransactionIterator.next();
 			Long pendingTransactionCheckpointId = entry.getKey();
 			TransactionHolder<TXN> pendingTransaction = entry.getValue();
+			// 如果待提交的事务的 checkpointId 大于当前通知的已完成的checkpointId，则循环继续下一个
 			if (pendingTransactionCheckpointId > checkpointId) {
 				continue;
 			}
@@ -306,18 +317,22 @@ public abstract class TwoPhaseCommitSinkFunction<IN, TXN, CONTEXT>
 
 		checkState(currentTransactionHolder != null, "bug: no transaction object when performing state snapshot");
 
+		// 从上下文中取得当前的checkpointId，是从0开始递增
 		long checkpointId = context.getCheckpointId();
 		LOG.debug("{} - checkpoint {} triggered, flushing transaction '{}'", name(), context.getCheckpointId(), currentTransactionHolder);
 
-		// 执行预提交操作
+		// 执行预提交操作，传入事务操作类，进行事务的预提交操作
 		preCommit(currentTransactionHolder.handle);
+		// 执行过预提交操作的事务放入pendingCommitTransactions集合，
 		pendingCommitTransactions.put(checkpointId, currentTransactionHolder);
 		LOG.debug("{} - stored pending transactions {}", name(), pendingCommitTransactions);
 
 		currentTransactionHolder = beginTransactionInternal();
 		LOG.debug("{} - started new transaction '{}'", name(), currentTransactionHolder);
 
+		// 清除上一次的state
 		state.clear();
+		// 存储新的状态
 		state.add(new State<>(
 			this.currentTransactionHolder,
 			new ArrayList<>(pendingCommitTransactions.values()),
@@ -326,17 +341,23 @@ public abstract class TwoPhaseCommitSinkFunction<IN, TXN, CONTEXT>
 
 	@Override
 	public void initializeState(FunctionInitializationContext context) throws Exception {
+		// 初始启动后或者重新启动后都可能会需要initializeState
+		// 当有处于 pending commit的事务时，我们不知道事务已经被提交了，或者在master已知checkpoint完成，但在通知sink writer的过程中
+		// 出现故障了
 		// when we are restoring state with pendingCommitTransactions, we don't really know whether the
 		// transactions were already committed, or whether there was a failure between
 		// completing the checkpoint on the master, and notifying the writer here.
 
+		// 通常情况下是已经提交了
 		// (the common case is actually that is was already committed, the window
 		// between the commit on the master and the notification here is very small)
 
+		// 可能就不存在事务了，如果在第一次checkpoint完成之前就已经出故障了。或者因为水平扩展，有的新task没有被分配到事务
 		// it is possible to not have any transactions at all if there was a failure before
 		// the first completed checkpoint, or in case of a scale-out event, where some of the
 		// new task do not have and transactions assigned to check)
 
+		// 可能有多于1个事务需要check，或者像notifyCheckpointComplete()方法中讨论的那些原因
 		// we can have more than one transaction to check in case of a scale-in event, or
 		// for the reasons discussed in the 'notifyCheckpointComplete()' method.
 
@@ -344,12 +365,15 @@ public abstract class TwoPhaseCommitSinkFunction<IN, TXN, CONTEXT>
 
 		boolean recoveredUserContext = false;
 		if (context.isRestored()) {
+			// 开始读取snapshot中的state，进行状态恢复操作
 			LOG.info("{} - restoring state", name());
 			for (State<TXN, CONTEXT> operatorState : state.get()) {
 				userContext = operatorState.getContext();
+				// 获取从state中读取的待提交的事务列表
 				List<TransactionHolder<TXN>> recoveredTransactions = operatorState.getPendingCommitTransactions();
 				for (TransactionHolder<TXN> recoveredTransaction : recoveredTransactions) {
 					// If this fails to succeed eventually, there is actually data loss
+					// 恢复状态的同时会执行提交操作
 					recoverAndCommitInternal(recoveredTransaction);
 					LOG.info("{} committed recovered transaction {}", name(), recoveredTransaction);
 				}
@@ -370,6 +394,7 @@ public abstract class TwoPhaseCommitSinkFunction<IN, TXN, CONTEXT>
 
 			userContext = initializeUserContext();
 		}
+		// 清除 pendingCommitTransactions 集合
 		this.pendingCommitTransactions.clear();
 
 		// 开启事务
@@ -382,6 +407,7 @@ public abstract class TwoPhaseCommitSinkFunction<IN, TXN, CONTEXT>
 	 * {@link TransactionHolder} is created at the same time.
 	 */
 	private TransactionHolder<TXN> beginTransactionInternal() throws Exception {
+		// 唯一内部调用beginTransaction()的地方
 		return new TransactionHolder<>(beginTransaction(), clock.millis());
 	}
 
@@ -396,6 +422,7 @@ public abstract class TwoPhaseCommitSinkFunction<IN, TXN, CONTEXT>
 			recoverAndCommit(transactionHolder.handle);
 		} catch (final Exception e) {
 			final long elapsedTime = clock.millis() - transactionHolder.transactionStartTime;
+			// 如果设置了忽略事务提交超时异常，并且确实发生了超时异常，则忽略
 			if (ignoreFailuresAfterTransactionTimeout && elapsedTime > transactionTimeout) {
 				LOG.error("Error while committing transaction {}. " +
 						"Transaction has been open for longer than the transaction timeout ({})." +
@@ -409,6 +436,7 @@ public abstract class TwoPhaseCommitSinkFunction<IN, TXN, CONTEXT>
 
 	private void logWarningIfTimeoutAlmostReached(TransactionHolder<TXN> transactionHolder) {
 		final long elapsedTime = transactionHolder.elapsedTime(clock);
+		// 耗时达到超时时间的一定比例，就会打印警告信息
 		if (transactionTimeoutWarningRatio >= 0 &&
 			elapsedTime > transactionTimeout * transactionTimeoutWarningRatio) {
 			LOG.warn("Transaction {} has been open for {} ms. " +
@@ -424,6 +452,7 @@ public abstract class TwoPhaseCommitSinkFunction<IN, TXN, CONTEXT>
 		super.close();
 
 		if (currentTransactionHolder != null) {
+			// 调用事务的abort()方法
 			abort(currentTransactionHolder.handle);
 			currentTransactionHolder = null;
 		}
@@ -447,7 +476,6 @@ public abstract class TwoPhaseCommitSinkFunction<IN, TXN, CONTEXT>
 	 * {@link #recoverAndCommit(Object)} if the transaction is older than a specified transaction
 	 * timeout. The start time of an transaction is determined by {@link System#currentTimeMillis()}.
 	 * By default, failures are propagated.
-	 *
 	 */
 	protected TwoPhaseCommitSinkFunction<IN, TXN, CONTEXT> ignoreFailuresAfterTransactionTimeout() {
 		this.ignoreFailuresAfterTransactionTimeout = true;
@@ -481,6 +509,7 @@ public abstract class TwoPhaseCommitSinkFunction<IN, TXN, CONTEXT>
 
 	/**
 	 * State POJO class coupling pendingTransaction, context and pendingCommitTransactions.
+	 * 两阶段提交Function中自定义的State类
 	 */
 	@VisibleForTesting
 	@Internal
@@ -558,12 +587,16 @@ public abstract class TwoPhaseCommitSinkFunction<IN, TXN, CONTEXT>
 	@Internal
 	public static final class TransactionHolder<TXN> {
 
+		/**
+		 * 事务操作的泛型类
+		 */
 		private final TXN handle;
 
 		/**
 		 * The system time when {@link #handle} was created.
 		 * Used to determine if the current transaction has exceeded its timeout specified by
 		 * {@link #transactionTimeout}.
+		 * 事务开始的时间
 		 */
 		private final long transactionStartTime;
 
@@ -623,8 +656,8 @@ public abstract class TwoPhaseCommitSinkFunction<IN, TXN, CONTEXT>
 		private final TypeSerializer<CONTEXT> contextSerializer;
 
 		public StateSerializer(
-				TypeSerializer<TXN> transactionSerializer,
-				TypeSerializer<CONTEXT> contextSerializer) {
+			TypeSerializer<TXN> transactionSerializer,
+			TypeSerializer<CONTEXT> contextSerializer) {
 			this.transactionSerializer = checkNotNull(transactionSerializer);
 			this.contextSerializer = checkNotNull(contextSerializer);
 		}
@@ -637,7 +670,7 @@ public abstract class TwoPhaseCommitSinkFunction<IN, TXN, CONTEXT>
 		@Override
 		public TypeSerializer<State<TXN, CONTEXT>> duplicate() {
 			return new StateSerializer<>(
-					transactionSerializer.duplicate(), contextSerializer.duplicate());
+				transactionSerializer.duplicate(), contextSerializer.duplicate());
 		}
 
 		@Override
@@ -666,8 +699,8 @@ public abstract class TwoPhaseCommitSinkFunction<IN, TXN, CONTEXT>
 
 		@Override
 		public State<TXN, CONTEXT> copy(
-				State<TXN, CONTEXT> from,
-				State<TXN, CONTEXT> reuse) {
+			State<TXN, CONTEXT> from,
+			State<TXN, CONTEXT> reuse) {
 			return copy(from);
 		}
 
@@ -678,8 +711,8 @@ public abstract class TwoPhaseCommitSinkFunction<IN, TXN, CONTEXT>
 
 		@Override
 		public void serialize(
-				State<TXN, CONTEXT> record,
-				DataOutputView target) throws IOException {
+			State<TXN, CONTEXT> record,
+			DataOutputView target) throws IOException {
 			final TransactionHolder<TXN> pendingTransaction = record.getPendingTransaction();
 			transactionSerializer.serialize(pendingTransaction.handle, target);
 			target.writeLong(pendingTransaction.transactionStartTime);
@@ -729,14 +762,14 @@ public abstract class TwoPhaseCommitSinkFunction<IN, TXN, CONTEXT>
 
 		@Override
 		public State<TXN, CONTEXT> deserialize(
-				State<TXN, CONTEXT> reuse,
-				DataInputView source) throws IOException {
+			State<TXN, CONTEXT> reuse,
+			DataInputView source) throws IOException {
 			return deserialize(source);
 		}
 
 		@Override
 		public void copy(
-				DataInputView source, DataOutputView target) throws IOException {
+			DataInputView source, DataOutputView target) throws IOException {
 			TXN pendingTxnHandle = transactionSerializer.deserialize(source);
 			transactionSerializer.serialize(pendingTxnHandle, target);
 			final long pendingTxnStartTime = source.readLong();
@@ -795,22 +828,25 @@ public abstract class TwoPhaseCommitSinkFunction<IN, TXN, CONTEXT>
 	 * {@code TwoPhaseCommitSinkFunction}.
 	 *
 	 * @deprecated this snapshot class is no longer in use, and is maintained only
-	 *             for backwards compatibility purposes. It is fully replaced by
-	 *             {@link StateSerializerSnapshot}.
+	 * for backwards compatibility purposes. It is fully replaced by
+	 * {@link StateSerializerSnapshot}.
 	 */
 	@Internal
 	@Deprecated
 	public static final class StateSerializerConfigSnapshot<TXN, CONTEXT>
-			extends CompositeTypeSerializerConfigSnapshot<State<TXN, CONTEXT>> {
+		extends CompositeTypeSerializerConfigSnapshot<State<TXN, CONTEXT>> {
 
 		private static final int VERSION = 1;
 
-		/** This empty nullary constructor is required for deserializing the configuration. */
-		public StateSerializerConfigSnapshot() {}
+		/**
+		 * This empty nullary constructor is required for deserializing the configuration.
+		 */
+		public StateSerializerConfigSnapshot() {
+		}
 
 		public StateSerializerConfigSnapshot(
-				TypeSerializer<TXN> transactionSerializer,
-				TypeSerializer<CONTEXT> contextSerializer) {
+			TypeSerializer<TXN> transactionSerializer,
+			TypeSerializer<CONTEXT> contextSerializer) {
 			super(transactionSerializer, contextSerializer);
 		}
 
@@ -821,7 +857,7 @@ public abstract class TwoPhaseCommitSinkFunction<IN, TXN, CONTEXT>
 
 		@Override
 		public TypeSerializerSchemaCompatibility<State<TXN, CONTEXT>> resolveSchemaCompatibility(
-				TypeSerializer<State<TXN, CONTEXT>> newSerializer) {
+			TypeSerializer<State<TXN, CONTEXT>> newSerializer) {
 
 			final TypeSerializerSnapshot<?>[] nestedSnapshots = getNestedSerializersAndConfigs()
 				.stream()
@@ -841,7 +877,7 @@ public abstract class TwoPhaseCommitSinkFunction<IN, TXN, CONTEXT>
 	 */
 	@Internal
 	public static final class StateSerializerSnapshot<TXN, CONTEXT>
-			extends CompositeTypeSerializerSnapshot<State<TXN, CONTEXT>, StateSerializer<TXN, CONTEXT>> {
+		extends CompositeTypeSerializerSnapshot<State<TXN, CONTEXT>, StateSerializer<TXN, CONTEXT>> {
 
 		private static final int VERSION = 2;
 
@@ -861,18 +897,16 @@ public abstract class TwoPhaseCommitSinkFunction<IN, TXN, CONTEXT>
 
 		@Override
 		protected StateSerializer<TXN, CONTEXT> createOuterSerializerWithNestedSerializers(TypeSerializer<?>[] nestedSerializers) {
-			@SuppressWarnings("unchecked")
-			final TypeSerializer<TXN> transactionSerializer = (TypeSerializer<TXN>) nestedSerializers[0];
+			@SuppressWarnings("unchecked") final TypeSerializer<TXN> transactionSerializer = (TypeSerializer<TXN>) nestedSerializers[0];
 
-			@SuppressWarnings("unchecked")
-			final TypeSerializer<CONTEXT> contextSerializer = (TypeSerializer<CONTEXT>) nestedSerializers[1];
+			@SuppressWarnings("unchecked") final TypeSerializer<CONTEXT> contextSerializer = (TypeSerializer<CONTEXT>) nestedSerializers[1];
 
 			return new StateSerializer<>(transactionSerializer, contextSerializer);
 		}
 
 		@Override
 		protected TypeSerializer<?>[] getNestedSerializers(StateSerializer<TXN, CONTEXT> outerSerializer) {
-			return new TypeSerializer<?>[] { outerSerializer.transactionSerializer, outerSerializer.contextSerializer };
+			return new TypeSerializer<?>[]{outerSerializer.transactionSerializer, outerSerializer.contextSerializer};
 		}
 	}
 }

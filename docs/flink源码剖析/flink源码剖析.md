@@ -3587,14 +3587,14 @@ flink1_9_0_SQL实践输出数据到mysql表：
       
       ![avatar](image/两阶段提交协议_预提交阶段_sink_Snapshot_state_and_Pre-commit.png)
       
-          当checkpoint barrier流过所有的operators并且触发了所有snapshot生成完毕，代表预提交阶段完成。所有的状态快照都被认为是一次checkpoint
+      当checkpoint barrier流过所有的operators并且触发了所有snapshot生成完毕，代表预提交阶段完成。所有的状态快照都被认为是一次checkpoint
       的一部分，checkpoint是一个全局状态快照，包括预提交阶段的external state。失败的情况下，可以从上一次成功的checkpoint处恢复。
       
-         下一步就是通知所有的operators本次checkpoint已经完成了，Data Sink进行真正的提交操作：
+      下一步就是通知所有的operators本次checkpoint已经完成了，Data Sink进行真正的提交操作：
       
       ![avatar](image/两阶段提交协议_提交阶段.png)
       
-        这里写入的是kafka这种提供了事务操作的外部系统。
+      这里写入的是kafka这种提供了事务操作的外部系统。
       
         
 
