@@ -226,6 +226,8 @@ public abstract class AbstractPrometheusReporter implements MetricReporter {
 					log.debug("Gauge {} is null-valued, defaulting to 0.", gauge);
 					return 0;
 				}
+				// 支持的Gauge返回类型只有Double、Number、Boolean 3种，不支持String
+				// 指标 LastCompletedCheckpointExternalPathGauge 就是不支持的
 				if (value instanceof Double) {
 					return (double) value;
 				}

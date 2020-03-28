@@ -73,6 +73,7 @@ public class PrometheusPushGatewayReporter extends AbstractPrometheusReporter im
 	@Override
 	public void report() {
 		try {
+			// HTTP的请求返回状态码必须是 HTTP_ACCEPTED=202，才不会打印异常日志，具体可以点到push方法里面
 			pushGateway.push(CollectorRegistry.defaultRegistry, jobName);
 		} catch (Exception e) {
 			log.warn("Failed to push metrics to PushGateway with jobName {}.", jobName, e);
