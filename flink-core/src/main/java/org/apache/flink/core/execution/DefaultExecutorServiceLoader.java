@@ -47,6 +47,9 @@ public class DefaultExecutorServiceLoader implements PipelineExecutorServiceLoad
 
 	private static final ServiceLoader<PipelineExecutorFactory> defaultLoader = ServiceLoader.load(PipelineExecutorFactory.class);
 
+	/**
+	 * 单例
+ 	 */
 	public static final DefaultExecutorServiceLoader INSTANCE = new DefaultExecutorServiceLoader();
 
 	@Override
@@ -54,10 +57,12 @@ public class DefaultExecutorServiceLoader implements PipelineExecutorServiceLoad
 		checkNotNull(configuration);
 
 		final List<PipelineExecutorFactory> compatibleFactories = new ArrayList<>();
+		// 遍历加载的 PipelineExecutorFactory 类
 		final Iterator<PipelineExecutorFactory> factories = defaultLoader.iterator();
 		while (factories.hasNext()) {
 			try {
 				final PipelineExecutorFactory factory = factories.next();
+				// 验证execution.target配置项的值与 PipelineExecutorFactory 的值是否相同
 				if (factory != null && factory.isCompatibleWith(configuration)) {
 					compatibleFactories.add(factory);
 				}
