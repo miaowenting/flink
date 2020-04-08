@@ -26,6 +26,8 @@ import com.codahale.metrics.Clock;
  * Wrapper to use a Flink {@link Meter} as a Dropwizard {@link com.codahale.metrics.Meter}.
  * This is necessary to report Flink's meters via the Dropwizard
  * {@link com.codahale.metrics.Reporter}.
+ *
+ * FlinkMeterWrapper 实现`com.codahale.metrics.Meter`， 包装 `org.apache.flink.metrics.Meter`，
  */
 public class FlinkMeterWrapper extends com.codahale.metrics.Meter {
 

@@ -51,6 +51,9 @@ class MeasurementInfoProvider implements MetricInfoProvider<MeasurementInfo> {
 	private static Map<String, String> getTags(MetricGroup group) {
 		// Keys are surrounded by brackets: remove them, transforming "<name>" to "name".
 		Map<String, String> tags = new HashMap<>();
+		// 将 MetricGroup 带的一些如下变量信息：
+		// 	 {@code {"<host>"="host-7", "<tm_id>"="taskmanager-2"}}.
+		// 转成 influxdb 中的 tags
 		for (Map.Entry<String, String> variable: group.getAllVariables().entrySet()) {
 			String name = variable.getKey();
 			tags.put(name.substring(1, name.length() - 1), variable.getValue());

@@ -49,6 +49,9 @@ public class PrometheusReporter extends AbstractPrometheusReporter {
 		return port;
 	}
 
+	/**
+	 * 根据配置项初始化一个 HttpServer，让 Prometheus 来垃取指标
+	 */
 	@Override
 	public void open(MetricConfig config) {
 		super.open(config);

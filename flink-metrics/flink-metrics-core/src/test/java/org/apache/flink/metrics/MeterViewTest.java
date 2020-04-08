@@ -44,8 +44,10 @@ public class MeterViewTest extends TestLogger {
 		Meter m = new MeterView(c);
 
 		assertEquals(0, m.getCount());
+		// 记录事件发生了1次
 		m.markEvent();
 		assertEquals(1, m.getCount());
+		// 记录事件发生了2次
 		m.markEvent(2);
 		assertEquals(3, m.getCount());
 	}

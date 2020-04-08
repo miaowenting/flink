@@ -51,6 +51,9 @@ abstract class AbstractReporter<MetricInfo> implements MetricReporter {
 		this.metricInfoProvider = metricInfoProvider;
 	}
 
+	/**
+	 * 添加指标时就转成MetricInfo
+	 */
 	@Override
 	public void notifyOfAddedMetric(Metric metric, String metricName, MetricGroup group) {
 		final MetricInfo metricInfo = metricInfoProvider.getMetricInfo(metricName, group);

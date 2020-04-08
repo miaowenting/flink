@@ -62,12 +62,19 @@ public class InfluxdbReporter extends AbstractReporter<MeasurementInfo> implemen
 	private String database;
 	private String retentionPolicy;
 	private InfluxDB.ConsistencyLevel consistency;
+	/**
+	 * influxdb 操作类
+ 	 */
 	private InfluxDB influxDB;
 
 	public InfluxdbReporter() {
+		// 设置 MeasurementInfoProvider
 		super(new MeasurementInfoProvider());
 	}
 
+	/**
+	 * 根据配置项初始化得到 InfluxDB 操作类
+	 */
 	@Override
 	public void open(MetricConfig config) {
 		String host = getString(config, HOST);
@@ -89,6 +96,7 @@ public class InfluxdbReporter extends AbstractReporter<MeasurementInfo> implemen
 
 		int connectTimeout = getInteger(config, CONNECT_TIMEOUT);
 		int writeTimeout = getInteger(config, WRITE_TIMEOUT);
+		// 使用 okhttp 包中提供的 HttpClient
 		OkHttpClient.Builder client = new OkHttpClient.Builder()
 			.connectTimeout(connectTimeout, TimeUnit.MILLISECONDS)
 			.writeTimeout(writeTimeout, TimeUnit.MILLISECONDS);
@@ -103,6 +111,9 @@ public class InfluxdbReporter extends AbstractReporter<MeasurementInfo> implemen
 			host, port, database, retentionPolicy, consistency.name());
 	}
 
+	/**
+	 * 执行 InfluxDB 操作类的 close() 方法
+	 */
 	@Override
 	public void close() {
 		if (influxDB != null) {
@@ -119,14 +130,21 @@ public class InfluxdbReporter extends AbstractReporter<MeasurementInfo> implemen
 		}
 	}
 
+	/**
+	 * 将指标信息封装成 influxdb 中的 BatchPoints
+	 * @return BatchPoints
+	 */
 	@Nullable
 	private BatchPoints buildReport() {
+		// 取当前时间点
 		Instant timestamp = Instant.now();
 		BatchPoints.Builder report = BatchPoints.database(database);
+		// 设置保留策略
 		report.retentionPolicy(retentionPolicy);
 		report.consistency(consistency);
 		try {
 			for (Map.Entry<Gauge<?>, MeasurementInfo> entry : gauges.entrySet()) {
+				// MeasurementInfo -> Point
 				report.point(MetricMapper.map(entry.getValue(), timestamp, entry.getKey()));
 			}
 

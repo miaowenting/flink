@@ -63,9 +63,14 @@ public abstract class ScheduledDropwizardReporter implements MetricReporter, Sch
 	public static final String ARG_CONVERSION_DURATION = "durationConversion";
 
 	// ------------------------------------------------------------------------
-
+	/**
+	 * dropwizard 包中的 MetricRegistry
+ 	 */
 	protected final MetricRegistry registry;
 
+	/**
+	 * dropwizard 包中的 ScheduledReporter
+	 */
 	protected ScheduledReporter reporter;
 
 	private final Map<Gauge<?>, String> gauges = new HashMap<>();
@@ -107,6 +112,9 @@ public abstract class ScheduledDropwizardReporter implements MetricReporter, Sch
 	//  life cycle
 	// ------------------------------------------------------------------------
 
+	/**
+	 * 初始化实现 ScheduledReporter
+	 */
 	@Override
 	public void open(MetricConfig config) {
 		this.reporter = getReporter(config);
@@ -121,6 +129,14 @@ public abstract class ScheduledDropwizardReporter implements MetricReporter, Sch
 	//  adding / removing metrics
 	// ------------------------------------------------------------------------
 
+	/**
+	 * 添加指标，添加指标，需要将flink内部的Metric转换成dropwizard中的Metric，
+	 * 再注册到 dropwizard 的 MetricRegistry 中
+	 *
+	 * @param metric      the metric that was added
+	 * @param metricName  the name of the metric
+	 * @param group       the group that contains the metric
+	 */
 	@Override
 	public void notifyOfAddedMetric(Metric metric, String metricName, MetricGroup group) {
 		final String fullName = group.getMetricIdentifier(metricName, this);
@@ -217,6 +233,9 @@ public abstract class ScheduledDropwizardReporter implements MetricReporter, Sch
 	//  scheduled reporting
 	// ------------------------------------------------------------------------
 
+	/**
+	 * report 时直接从 dropwizard 的 MetricRegistry 中捞取所有指标，执行 ScheduledReporter 的 report 方法
+	 */
 	@Override
 	public void report() {
 		// we do not need to lock here, because the dropwizard registry is

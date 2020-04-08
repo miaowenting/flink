@@ -42,6 +42,9 @@ public class JobManagerJobMetricGroup extends JobMetricGroup<JobManagerMetricGro
 		super(registry, checkNotNull(parent), jobId, jobName, registry.getScopeFormats().getJobManagerJobFormat().formatScope(checkNotNull(parent), jobId, jobName));
 	}
 
+	/**
+	 * JobManagerJobMetricGroup 的父group是 JobManagerMetricGroup
+	 */
 	public final JobManagerMetricGroup parent() {
 		return parent;
 	}

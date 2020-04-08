@@ -30,6 +30,8 @@ import java.nio.charset.Charset;
 /**
  * Wrapper to use Flink's {@link HistogramStatistics} as a Dropwizard {@link Snapshot}. This is
  * necessary to report Flink's histograms via the Dropwizard {@link com.codahale.metrics.Reporter}.
+ *
+ * HistogramStatisticsWrapper 实现`com.codahale.metrics.Snapshot`， 包装 `org.apache.flink.metrics.HistogramStatistics`，
  */
 class HistogramStatisticsWrapper extends Snapshot {
 

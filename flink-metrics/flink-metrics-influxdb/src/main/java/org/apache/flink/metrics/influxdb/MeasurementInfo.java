@@ -21,7 +21,13 @@ package org.apache.flink.metrics.influxdb;
 import java.util.Map;
 
 final class MeasurementInfo {
+	/**
+	 * 指标项名称
+	 */
 	private final String name;
+	/**
+	 * tag key 和 tag value对集合
+	 */
 	private final Map<String, String> tags;
 
 	MeasurementInfo(String name, Map<String, String> tags) {

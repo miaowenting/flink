@@ -38,6 +38,8 @@ import java.util.Map;
 
 /**
  * {@link MetricReporter} that exports {@link Metric Metrics} via SLF4J {@link Logger}.
+ *
+ * 继承了 flink-metrics-core 模块中的 AbstractReporter，复用其添加移除指标的方法
  */
 public class Slf4jReporter extends AbstractReporter implements Scheduled {
 	private static final Logger LOG = LoggerFactory.getLogger(Slf4jReporter.class);
@@ -85,6 +87,9 @@ public class Slf4jReporter extends AbstractReporter implements Scheduled {
 		}
 	}
 
+	/**
+	 * 其实就是遍历所有的指标项，拼接成字符串，打印到日志文件中
+	 */
 	private void tryReport() {
 		// initialize with previous size to avoid repeated resizing of backing array
 		// pad the size to allow deviations in the final string, for example due to different double value representations

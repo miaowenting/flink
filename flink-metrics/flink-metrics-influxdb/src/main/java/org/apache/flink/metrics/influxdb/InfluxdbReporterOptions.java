@@ -26,9 +26,13 @@ import org.influxdb.InfluxDB;
 
 /**
  * Config options for {@link InfluxdbReporter}.
+ * 连接 influxdb 写指标的配置项，类似正常写RDBMS需要的配置。定义一些常量。
  */
 public class InfluxdbReporterOptions {
 
+	/**
+	 * ConfigOption 定义的与 flink Configuration 相关的配置项
+	 */
 	public static final ConfigOption<String> HOST = ConfigOptions
 		.key("host")
 		.noDefaultValue()
@@ -59,7 +63,7 @@ public class InfluxdbReporterOptions {
 		.defaultValue("")
 		.withDescription("(optional) the InfluxDB retention policy for metrics");
 
-	public static final ConfigOption<InfluxDB.ConsistencyLevel>  CONSISTENCY = ConfigOptions
+	public static final ConfigOption<InfluxDB.ConsistencyLevel> CONSISTENCY = ConfigOptions
 		.key("consistency")
 		.enumType(InfluxDB.ConsistencyLevel.class)
 		.defaultValue(InfluxDB.ConsistencyLevel.ONE)

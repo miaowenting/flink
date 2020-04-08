@@ -56,6 +56,7 @@ public class GraphiteReporter extends ScheduledDropwizardReporter {
 		String conversionDuration = config.getString(ARG_CONVERSION_DURATION, null);
 		String protocol = config.getString(ARG_PROTOCOL, "TCP");
 
+		// 复用 dropwizard 包提供的 GraphiteReporter
 		com.codahale.metrics.graphite.GraphiteReporter.Builder builder =
 			com.codahale.metrics.graphite.GraphiteReporter.forRegistry(registry);
 
@@ -79,6 +80,7 @@ public class GraphiteReporter extends ScheduledDropwizardReporter {
 			prot = Protocol.TCP;
 		}
 
+		// 支持UDP和TCP协议
 		log.info("Configured GraphiteReporter with {host:{}, port:{}, protocol:{}}", host, port, prot);
 		switch(prot) {
 			case UDP:

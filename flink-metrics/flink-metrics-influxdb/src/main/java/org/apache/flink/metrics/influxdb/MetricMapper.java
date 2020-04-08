@@ -29,6 +29,9 @@ import org.influxdb.dto.Point;
 import java.time.Instant;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * 将 MeasurementInfo 转成 influxdb 中的 Point
+ */
 class MetricMapper {
 
 	static Point map(MeasurementInfo info, Instant timestamp, Gauge<?> gauge) {

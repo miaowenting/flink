@@ -26,6 +26,8 @@ import com.codahale.metrics.Snapshot;
  * Wrapper to use a Flink {@link Histogram} as a Dropwizard {@link com.codahale.metrics.Histogram}.
  * This is necessary to report Flink's histograms via the Dropwizard
  * {@link com.codahale.metrics.Reporter}.
+ *
+ * FlinkHistogramWrapper 实现`com.codahale.metrics.Histogram`， 包装 `org.apache.flink.metrics.Histogram`，
  */
 public class FlinkHistogramWrapper extends com.codahale.metrics.Histogram {
 

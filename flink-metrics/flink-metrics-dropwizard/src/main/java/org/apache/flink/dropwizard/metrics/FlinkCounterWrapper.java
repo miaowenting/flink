@@ -22,6 +22,8 @@ import org.apache.flink.metrics.Counter;
 
 /**
  * A wrapper that allows a Flink counter to be used as a DropWizard counter.
+ *
+ * FlinkCounterWrapper 实现`com.codahale.metrics.Counter`， 包装 `org.apache.flink.metrics.Counter`，
  */
 public class FlinkCounterWrapper extends com.codahale.metrics.Counter {
 	private final Counter counter;

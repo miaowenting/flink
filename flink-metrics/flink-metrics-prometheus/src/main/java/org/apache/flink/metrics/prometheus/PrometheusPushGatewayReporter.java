@@ -52,6 +52,9 @@ public class PrometheusPushGatewayReporter extends AbstractPrometheusReporter im
 	private boolean deleteOnShutdown;
 	private Map<String, String> groupingKey;
 
+	/**
+	 * 根据配置项初始化得到 PushGateway 操作类
+	 */
 	@Override
 	public void open(MetricConfig config) {
 		super.open(config);
@@ -106,6 +109,7 @@ public class PrometheusPushGatewayReporter extends AbstractPrometheusReporter im
 	@Override
 	public void report() {
 		try {
+			// 使用 PushGateway 的 push 方法，走 HTTP 协议，将指标推送到 PushGateway
 			pushGateway.push(CollectorRegistry.defaultRegistry, jobName, groupingKey);
 		} catch (Exception e) {
 			log.warn("Failed to push metrics to PushGateway with jobName {}, groupingKey {}.", jobName, groupingKey, e);

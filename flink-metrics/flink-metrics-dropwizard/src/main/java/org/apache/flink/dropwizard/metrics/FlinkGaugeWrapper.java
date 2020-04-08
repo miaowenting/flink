@@ -22,6 +22,8 @@ import org.apache.flink.metrics.Gauge;
 
 /**
  * A wrapper that allows a Flink gauge to be used as a DropWizard gauge.
+ *
+ * FlinkGaugeWrapper 实现`com.codahale.metrics.Gauge`， 包装 `org.apache.flink.metrics.Gauge`，
  */
 public class FlinkGaugeWrapper<T> implements com.codahale.metrics.Gauge<T> {
 

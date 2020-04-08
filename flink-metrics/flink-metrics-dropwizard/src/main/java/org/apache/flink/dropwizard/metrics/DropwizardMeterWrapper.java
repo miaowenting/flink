@@ -22,6 +22,8 @@ import org.apache.flink.metrics.Meter;
 
 /**
  * Wrapper to use a Dropwizard {@link com.codahale.metrics.Meter} as a Flink {@link Meter}.
+ *
+ * DropwizardMeterWrapper 实现`org.apache.flink.metrics.Meter`接口 ，包装`com.codahale.metrics.Meter`
  */
 public class DropwizardMeterWrapper implements Meter {
 

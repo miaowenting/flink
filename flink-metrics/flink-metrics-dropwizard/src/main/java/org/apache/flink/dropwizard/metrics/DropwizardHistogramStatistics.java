@@ -25,6 +25,8 @@ import com.codahale.metrics.Snapshot;
 /**
  * Dropwizard histogram statistics implementation returned by {@link DropwizardHistogramWrapper}.
  * The statistics class wraps a {@link Snapshot} instance and forwards the method calls accordingly.
+ *
+ * DropwizardHistogramStatistics 实现`org.apache.flink.metrics.HistogramStatistics`接口 ，包装`com.codahale.metrics.Snapshot`
  */
 class DropwizardHistogramStatistics extends HistogramStatistics {
 

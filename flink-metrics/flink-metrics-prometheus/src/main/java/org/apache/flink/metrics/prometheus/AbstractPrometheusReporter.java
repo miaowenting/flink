@@ -98,7 +98,9 @@ public abstract class AbstractPrometheusReporter implements MetricReporter {
 	@Override
 	public void notifyOfAddedMetric(final Metric metric, final String metricName, final MetricGroup group) {
 
+		// 维度key集合
 		List<String> dimensionKeys = new LinkedList<>();
+		// 维度value集合
 		List<String> dimensionValues = new LinkedList<>();
 		for (final Map.Entry<String, String> dimension : group.getAllVariables().entrySet()) {
 			final String key = dimension.getKey();
@@ -120,6 +122,7 @@ public abstract class AbstractPrometheusReporter implements MetricReporter {
 			} else {
 				collector = createCollector(metric, dimensionKeys, dimensionValues, scopedMetricName, helpString);
 				try {
+					// 注册当前的 collector 到 CollectorRegistry.defaultRegistry 中
 					collector.register();
 				} catch (Exception e) {
 					log.warn("There was a problem registering metric {}.", metricName, e);
@@ -134,6 +137,9 @@ public abstract class AbstractPrometheusReporter implements MetricReporter {
 		return SCOPE_PREFIX + getLogicalScope(group) + SCOPE_SEPARATOR + CHARACTER_FILTER.filterCharacters(metricName);
 	}
 
+	/**
+	 * 将 Metric 转成 prometheus 的 Collector
+	 */
 	private Collector createCollector(Metric metric, List<String> dimensionKeys, List<String> dimensionValues, String scopedMetricName, String helpString) {
 		Collector collector;
 		if (metric instanceof Gauge || metric instanceof Counter || metric instanceof Meter) {
@@ -153,6 +159,9 @@ public abstract class AbstractPrometheusReporter implements MetricReporter {
 		return collector;
 	}
 
+	/**
+	 * 取出 Metric 中的值，为 Collector 设置 label values
+	 */
 	private void addMetric(Metric metric, List<String> dimensionValues, Collector collector) {
 		if (metric instanceof Gauge) {
 			((io.prometheus.client.Gauge) collector).setChild(gaugeFrom((Gauge) metric), toArray(dimensionValues));
@@ -223,6 +232,7 @@ public abstract class AbstractPrometheusReporter implements MetricReporter {
 			@Override
 			public double get() {
 				final Object value = gauge.getValue();
+				// 注意：这里只支持 Gauge 的返回值为 Double、Number、Boolean 的，暂时不支持String
 				if (value == null) {
 					log.debug("Gauge {} is null-valued, defaulting to 0.", gauge);
 					return 0;

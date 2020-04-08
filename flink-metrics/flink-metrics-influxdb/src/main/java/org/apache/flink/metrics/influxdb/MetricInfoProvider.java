@@ -27,5 +27,12 @@ import org.apache.flink.metrics.MetricGroup;
  */
 interface MetricInfoProvider<MetricInfo> {
 
+	/**
+	 * 根据 metricName 和 MetricGroup，将该指标项封装成需要的返回类型
+	 *
+	 * @param metricName the metric name
+	 * @param group      the MetricGroup
+	 * @return MetricInfo
+	 */
 	MetricInfo getMetricInfo(String metricName, MetricGroup group);
 }

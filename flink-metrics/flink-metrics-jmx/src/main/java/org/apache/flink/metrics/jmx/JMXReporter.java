@@ -92,7 +92,9 @@ public class JMXReporter implements MetricReporter {
 	private final JMXServer jmxServer;
 
 	JMXReporter(@Nullable final String portsConfig) {
+		// 获取 MBeanServer 单例
 		this.mBeanServer = ManagementFactory.getPlatformMBeanServer();
+		// 存放注册指标的Map
 		this.registeredMetrics = new HashMap<>();
 
 		if (portsConfig != null) {
@@ -103,6 +105,7 @@ public class JMXReporter implements MetricReporter {
 				JMXServer server = new JMXServer();
 				int port = ports.next();
 				try {
+					// 创建并启动 Registry 和 JMXConnectorServer
 					server.start(port);
 					LOG.info("Started JMX server on port " + port + ".");
 					successfullyStartedServer = server;
@@ -174,6 +177,7 @@ public class JMXReporter implements MetricReporter {
 			return;
 		}
 
+		// 将 flink 中的 Metric 转成 MBean
 		if (metric instanceof Gauge) {
 			jmxMetric = new JmxGauge((Gauge<?>) metric);
 		} else if (metric instanceof Counter) {
@@ -190,6 +194,7 @@ public class JMXReporter implements MetricReporter {
 
 		try {
 			synchronized (this) {
+				// 注册到 MetricBean 到 MBeanServer 中
 				mBeanServer.registerMBean(jmxMetric, jmxName);
 				registeredMetrics.put(metric, jmxName);
 			}

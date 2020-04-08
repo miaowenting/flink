@@ -47,6 +47,12 @@ import java.util.NoSuchElementException;
  * <p>https://github.com/ReadyTalk/metrics-statsd/blob/master/metrics3-statsd/src/main/java/com/readytalk/metrics/StatsDReporter.java
  *
  * <p>Ported since it was not present in maven central.
+ *
+ * StatsD 从狭义上讲，其实就是一个监听 UDP（Default）/TCP的守护程序。
+ * StatsD 系统包括三部分：客户端（client）、服务器（server）和后端（backend）
+ * StatsDReporter 相当于 StatsD 系统的客户端，将 metrics 上报给 StatsD server，StatsD server 聚合这些 metrics 之后，定时发送给 backend，
+ * backend 则负责存储这些时间序列数据，并通过适当的图表工具展示。
+ *
  */
 @PublicEvolving
 public class StatsDReporter extends AbstractReporter implements Scheduled {
@@ -204,8 +210,12 @@ public class StatsDReporter extends AbstractReporter implements Scheduled {
 
 	private void send(final String name, final String value) {
 		try {
+			// StatsD 的协议其实非常简单，每一行就是一条数据，g 表示 Gauge
+			// 如 "system.load.1min:0.5|g"，表示某一时刻系统1分钟的负载为0.5
 			String formatted = String.format("%s:%s|g", name, value);
 			byte[] data = formatted.getBytes(StandardCharsets.UTF_8);
+			// 默认通过 socket 发送 UDP 数据包到 StatsD
+			// 因为 UDP 比 TCP 更快，不想为了追踪应用的表现而减慢其速度
 			socket.send(new DatagramPacket(data, data.length, this.address));
 		}
 		catch (IOException e) {

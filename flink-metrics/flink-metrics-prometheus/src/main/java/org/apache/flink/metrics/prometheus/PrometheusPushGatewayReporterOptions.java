@@ -26,6 +26,7 @@ import org.apache.flink.configuration.description.TextElement;
 
 /**
  * Config options for the {@link PrometheusPushGatewayReporter}.
+ * 连接 PrometheusPushGateway 写指标的配置项
  */
 public class PrometheusPushGatewayReporterOptions {
 
