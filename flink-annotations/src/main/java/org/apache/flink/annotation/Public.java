@@ -30,6 +30,8 @@ import java.lang.annotation.Target;
  * applications using @Public annotated classes will compile against newer versions of the same major release.
  *
  * <p>Only major releases (1.0, 2.0, 3.0) can break interfaces with this annotation.
+ *
+ * 类，方法或者属性被这个这个注解修饰时，表示在小版本迭代中，都维持稳定。
  */
 @Documented
 @Target(ElementType.TYPE)

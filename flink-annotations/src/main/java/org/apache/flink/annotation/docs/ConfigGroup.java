@@ -27,6 +27,8 @@ import java.lang.annotation.Target;
  * filename of the generated html file, as defined in {@link ConfigOptionsDocGenerator}.
  *
  * @see ConfigGroups
+ *
+ * 指定一组配置选项的类，该组的 name 用作生成 HTML 文件的文件名
  */
 @Target({})
 @Internal

@@ -188,9 +188,11 @@ public class ConfigOptionsDocGenerator {
 
 	@VisibleForTesting
 	static List<Tuple2<ConfigGroup, String>> generateTablesForClass(Class<?> optionsClass) {
+		// 获取 optionsClass 类上定义的 @ConfigGroups
 		ConfigGroups configGroups = optionsClass.getAnnotation(ConfigGroups.class);
 		List<OptionWithMetaInfo> allOptions = extractConfigOptions(optionsClass);
 
+		// 遍历 @ConfigGroups 注解中的 ConfigGroup[] groups()
 		List<Tuple2<ConfigGroup, String>> tables;
 		if (configGroups != null) {
 			tables = new ArrayList<>(configGroups.groups().length + 1);

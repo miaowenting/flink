@@ -27,11 +27,15 @@ import java.lang.annotation.Target;
 
 /**
  * Collection of annotations to modify the behavior of the documentation generators.
+ *
+ * 修改文档生成器的行为的注解集合
  */
 public final class Documentation {
 
 	/**
 	 * Annotation used on config option fields to override the documented default.
+	 *
+	 * 重写默认值
 	 */
 	@Target(ElementType.FIELD)
 	@Retention(RetentionPolicy.RUNTIME)
@@ -45,6 +49,8 @@ public final class Documentation {
 	 *
 	 * <p>The {@link CommonOption#position()} argument controls the position in the generated table, with lower values
 	 * being placed at the top. Fields with the same position are sorted alphabetically by key.
+	 *
+	 * 控制表格生成的位置
 	 */
 	@Target(ElementType.FIELD)
 	@Retention(RetentionPolicy.RUNTIME)
@@ -64,6 +70,8 @@ public final class Documentation {
 	 *
 	 * <p>The {@link TableOption#execMode()} argument indicates the execution mode the config works for
 	 * (batch, streaming or both).
+	 *
+	 * 添加元数据标签
 	 */
 	@Target(ElementType.FIELD)
 	@Retention(RetentionPolicy.RUNTIME)
@@ -93,6 +101,8 @@ public final class Documentation {
 
 	/**
 	 * Annotation used on config option fields to exclude the config option from documentation.
+	 *
+	 * 用于从文档中移除配置项
 	 */
 	@Target(ElementType.FIELD)
 	@Retention(RetentionPolicy.RUNTIME)
@@ -100,6 +110,7 @@ public final class Documentation {
 	public @interface ExcludeFromDocumentation {
 		/**
 		 * The optional reason why the config option is excluded from documentation.
+		 * 解释下从文档中移除配置项的原因
 		 */
 		String value() default "";
 	}
