@@ -1,0 +1,11 @@
+public final class com.sun.proxy.$Proxy1 extends java.lang.reflect.Proxy implements org.apache.flink.annotation.TestAnnotation {
+  public com.sun.proxy.$Proxy1(java.lang.reflect.InvocationHandler) throws ;
+  public final boolean equals(java.lang.Object) throws ;
+  public final java.lang.String toString() throws ;
+  public final java.lang.String msg() throws ;
+  public final java.lang.Class annotationType() throws ;
+  public final int id() throws ;
+  public final int hashCode() throws ;
+  public final java.lang.String value() throws ;
+  static {} throws ;
+}
