@@ -285,6 +285,9 @@ public class ConfigOptionsDocGeneratorTest {
 			.withDescription("This is long example description for the fourth option.");
 	}
 
+	/**
+	 * `@ConfigGroups` 和 `@ConfigGroup` 注解单测
+	 */
 	@Test
 	public void testCreatingMultipleGroups() {
 		final List<Tuple2<ConfigGroup, String>> tables = ConfigOptionsDocGenerator.generateTablesForClass(
@@ -375,6 +378,9 @@ public class ConfigOptionsDocGeneratorTest {
 			.withDescription("This is long example description for the second option.");
 	}
 
+	/**
+	 * `@Documentation.OverrideDefault`注解单测
+	 */
 	@Test
 	public void testOverrideDefault() {
 		final String expectedTable =
@@ -407,9 +413,13 @@ public class ConfigOptionsDocGeneratorTest {
 		assertEquals(expectedTable, htmlTable);
 	}
 
+	/**
+	 * `@Documentation.CommonOption`注解单测
+	 */
 	@Test
 	public void testCommonOptions() throws IOException, ClassNotFoundException {
-		final String projectRootDir = System.getProperty("rootDir");
+//		final String projectRootDir = System.getProperty("rootDir");
+		final String projectRootDir = "/Users/miaowenting/Work/third/flink";
 		final String outputDirectory = TMP.newFolder().getAbsolutePath();
 
 		final OptionsClassLocation[] locations = new OptionsClassLocation[] {
@@ -466,6 +476,8 @@ public class ConfigOptionsDocGeneratorTest {
 	/**
 	 * Tests that {@link ConfigOption} annotated with {@link Documentation.ExcludeFromDocumentation}
 	 * are not documented.
+	 *
+	 * `@Documentation.ExcludeFromDocumentation` 注解单测
 	 */
 	@Test
 	public void testConfigOptionExclusion() {

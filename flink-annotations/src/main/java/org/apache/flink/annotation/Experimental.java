@@ -32,6 +32,9 @@ import java.lang.annotation.Target;
  * <p>This annotation also excludes classes with evolving interfaces / signatures
  * annotated with {@link Public} and {@link PublicEvolving}.
  *
+ * 表示标记对象是试验使用的注解，带有此注解的类是没有经过严格测试和不稳定的，可能在以后的版本中被修改或移除。
+ * 排除了被 @Public @PublicEvolving 注解的类。
+ *
  */
 @Documented
 @Target({ElementType.TYPE, ElementType.METHOD, ElementType.FIELD, ElementType.CONSTRUCTOR })

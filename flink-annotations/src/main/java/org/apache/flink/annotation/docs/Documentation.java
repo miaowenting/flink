@@ -35,7 +35,7 @@ public final class Documentation {
 	/**
 	 * Annotation used on config option fields to override the documented default.
 	 *
-	 * 重写默认值
+	 * 覆盖 ConfigOption 原先设置的默认值
 	 */
 	@Target(ElementType.FIELD)
 	@Retention(RetentionPolicy.RUNTIME)
@@ -50,6 +50,7 @@ public final class Documentation {
 	 * <p>The {@link CommonOption#position()} argument controls the position in the generated table, with lower values
 	 * being placed at the top. Fields with the same position are sorted alphabetically by key.
 	 *
+	 * 作用在 ConfigOption 上的注解，使其包含在 "Common Options" 片段中
 	 * 控制表格生成的位置
 	 */
 	@Target(ElementType.FIELD)
@@ -62,6 +63,9 @@ public final class Documentation {
 		int POSITION_HIGH_AVAILABILITY = 40;
 		int POSITION_SECURITY = 50;
 
+		/**
+		 * 控制显示的位置顺序，position 小的显示在前面，具有相同值的按字母顺序排序
+		 */
 		int position() default Integer.MAX_VALUE;
 	}
 
@@ -71,7 +75,7 @@ public final class Documentation {
 	 * <p>The {@link TableOption#execMode()} argument indicates the execution mode the config works for
 	 * (batch, streaming or both).
 	 *
-	 * 添加元数据标签
+	 * 作用于表格配置项上，用于添加元数据标签
 	 */
 	@Target(ElementType.FIELD)
 	@Retention(RetentionPolicy.RUNTIME)

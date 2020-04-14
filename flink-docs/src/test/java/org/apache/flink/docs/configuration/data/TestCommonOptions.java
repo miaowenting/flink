@@ -24,9 +24,14 @@ import org.apache.flink.configuration.ConfigOptions;
 
 /**
  * Collection of test {@link ConfigOptions ConfigOptions}.
+ *
+ * mock 了一个带 @Documentation.CommonOption 注解的配置类
  */
 public class TestCommonOptions {
 
+	/**
+	 * COMMON_OPTION 使用了 @Documentation.CommonOption 注解，position 使用默认值为 Integer.MAX_VALUE
+	 */
 	@Documentation.CommonOption
 	public static final ConfigOption<Integer> COMMON_OPTION = ConfigOptions
 		.key("first.option.a")
@@ -38,6 +43,9 @@ public class TestCommonOptions {
 		.noDefaultValue()
 		.withDescription("This is the description for the generic option.");
 
+	/**
+	 * COMMON_POSITIONED_OPTION 也是用了 @Documentation.CommonOption 注解，position 值指定为2，这个配置项肯定排在 COMMON_OPTION 前面
+	 */
 	@Documentation.CommonOption(position = 2)
 	public static final ConfigOption<Integer> COMMON_POSITIONED_OPTION = ConfigOptions
 		.key("third.option.a")

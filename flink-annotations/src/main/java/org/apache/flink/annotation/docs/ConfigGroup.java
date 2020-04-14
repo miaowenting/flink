@@ -28,7 +28,8 @@ import java.lang.annotation.Target;
  *
  * @see ConfigGroups
  *
- * 指定一组配置选项的类，该组的 name 用作生成 HTML 文件的文件名
+ * 指定一组配置选项，组的名称将用作生成 HTML 文件名，keyPrefix 用于匹配配置项名称前缀。
+ * 如 @ConfigGroup(name = "firstGroup", keyPrefix = "first")，生成的 HTML 文件名为 firstGroup ，其中的配置项名称都是以 first 开头的。
  */
 @Target({})
 @Internal

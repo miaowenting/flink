@@ -92,6 +92,7 @@ public class ConfigOptionsDocGenerator {
 	private static final Pattern CLASS_NAME_PATTERN = Pattern.compile("(?<" + CLASS_NAME_GROUP + ">(?<" + CLASS_PREFIX_GROUP + ">[a-zA-Z]*)(?:Options|Config|Parameters))(?:\\.java)?");
 
 	private static final Formatter formatter = new HtmlFormatter();
+
 	/**
 	 * This method generates html tables from set of classes containing {@link ConfigOption ConfigOptions}.
 	 *
@@ -102,9 +103,8 @@ public class ConfigOptionsDocGenerator {
 	 * <p>One additional table is generated containing all {@link ConfigOption ConfigOptions} that are annotated with
 	 * {@link org.apache.flink.annotation.docs.Documentation.CommonOption}.
 	 *
-	 * @param args
-	 *  [0] output directory for the generated files
-	 *  [1] project root directory
+	 * @param args [0] output directory for the generated files
+	 *             [1] project root directory
 	 */
 	public static void main(String[] args) throws IOException, ClassNotFoundException {
 		String outputDirectory = args[0];
@@ -121,6 +121,7 @@ public class ConfigOptionsDocGenerator {
 	static void generateCommonSection(String rootDir, String outputDirectory, OptionsClassLocation[] locations, String pathPrefix) throws IOException, ClassNotFoundException {
 		List<OptionWithMetaInfo> commonOptions = new ArrayList<>(32);
 		for (OptionsClassLocation location : locations) {
+			// 获取所有到 @CommonOption 注解的配置项字段
 			commonOptions.addAll(findCommonOptions(rootDir, location.getModule(), location.getPackage(), pathPrefix));
 		}
 		commonOptions.sort((o1, o2) -> {
@@ -190,19 +191,24 @@ public class ConfigOptionsDocGenerator {
 	static List<Tuple2<ConfigGroup, String>> generateTablesForClass(Class<?> optionsClass) {
 		// 获取 optionsClass 类上定义的 @ConfigGroups
 		ConfigGroups configGroups = optionsClass.getAnnotation(ConfigGroups.class);
+		// 抽取 optionsClass 中的所有 ConfigOption 配置项
 		List<OptionWithMetaInfo> allOptions = extractConfigOptions(optionsClass);
 
 		// 遍历 @ConfigGroups 注解中的 ConfigGroup[] groups()
 		List<Tuple2<ConfigGroup, String>> tables;
 		if (configGroups != null) {
+			// 解析 optionsClass 上的 ConfigGroup 注解，即是有分组的。另外一个是默认的 ConfigGroup
 			tables = new ArrayList<>(configGroups.groups().length + 1);
 			Tree tree = new Tree(configGroups.groups(), allOptions);
 
 			for (ConfigGroup group : configGroups.groups()) {
 				List<OptionWithMetaInfo> configOptions = tree.findConfigOptions(group);
+				// 按照 ConfigOption 的 key 进行排序
 				sortOptions(configOptions);
 				tables.add(Tuple2.of(group, toHtmlTable(configOptions)));
 			}
+
+			// 所有 @ConfigGroup 前缀都匹配不上的其他 ConfigOption 归为 default 组
 			List<OptionWithMetaInfo> configOptions = tree.getDefaultOptions();
 			sortOptions(configOptions);
 			tables.add(Tuple2.of(null, toHtmlTable(configOptions)));
@@ -219,6 +225,7 @@ public class ConfigOptionsDocGenerator {
 			List<OptionWithMetaInfo> configOptions = new ArrayList<>(8);
 			Field[] fields = clazz.getFields();
 			for (Field field : fields) {
+				// 字段类型是 ConfigOption，并且被贴上了 @Documented 标签
 				if (isConfigOption(field) && shouldBeDocumented(field)) {
 					configOptions.add(new OptionWithMetaInfo((ConfigOption<?>) field.get(null), field));
 				}
@@ -259,6 +266,7 @@ public class ConfigOptionsDocGenerator {
 		htmlTable.append("    </thead>\n");
 		htmlTable.append("    <tbody>\n");
 
+		// 遍历 options 作为 tbody
 		for (OptionWithMetaInfo option : options) {
 			htmlTable.append(toHtmlString(option));
 		}
@@ -282,17 +290,18 @@ public class ConfigOptionsDocGenerator {
 		Documentation.TableOption tableOption = optionWithMetaInfo.field.getAnnotation(Documentation.TableOption.class);
 		StringBuilder execModeStringBuilder = new StringBuilder();
 		if (tableOption != null) {
+			// 如果 ConfigOption 上有 @Documentation.TableOption 注解，则读取它的 execMode 字段，拼接到 html 内容中。
 			Documentation.ExecMode execMode = tableOption.execMode();
 			if (Documentation.ExecMode.BATCH_STREAMING.equals(execMode)) {
 				execModeStringBuilder.append("<br> <span class=\"label label-primary\">")
-						.append(Documentation.ExecMode.BATCH.toString())
-						.append("</span> <span class=\"label label-primary\">")
-						.append(Documentation.ExecMode.STREAMING.toString())
-						.append("</span>");
+					.append(Documentation.ExecMode.BATCH.toString())
+					.append("</span> <span class=\"label label-primary\">")
+					.append(Documentation.ExecMode.STREAMING.toString())
+					.append("</span>");
 			} else {
 				execModeStringBuilder.append("<br> <span class=\"label label-primary\">")
-						.append(execMode.toString())
-						.append("</span>");
+					.append(execMode.toString())
+					.append("</span>");
 			}
 		}
 

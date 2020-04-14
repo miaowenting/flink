@@ -31,7 +31,7 @@ import java.lang.annotation.Target;
  *
  * <p>Only major releases (1.0, 2.0, 3.0) can break interfaces with this annotation.
  *
- * 类，方法或者属性被这个这个注解修饰时，表示在小版本迭代中，都维持稳定。
+ * 标注类为公共的，稳定的。类、方法、属性被这个这个注解修饰时，表示在小版本迭代(1.0,1.1,1.2)中，都维持稳定，应用程序将根据同一大版本进行编译。
  */
 @Documented
 @Target(ElementType.TYPE)

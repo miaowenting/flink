@@ -32,6 +32,13 @@ import java.lang.annotation.Target;
  * assigned to multiple groups. Options that don't match any group are implicitly added to a default group.
  *
  * 提供了一种根据key的最大前缀来把配置选项拆分为不同的组。
+ * 允许一个配置类中的配置项可以按照配置项名称前缀分成不同的组，生成多个 HTML 文件。
+ * 如：
+ * @ConfigGroups(groups = {
+ *                @ConfigGroup(name = "firstGroup", keyPrefix = "first"),
+ *        @ConfigGroup(name = "secondGroup", keyPrefix = "second")})
+ * 可以从配置类生成 3 个 HTML 文件，分别为 firstGroup、secondGroup、default
+ *
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
