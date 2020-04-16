@@ -1,4 +1,4 @@
-package uml;
+package uml.whole;
 
 /**
  * Description:
@@ -7,5 +7,5 @@ package uml;
  * @version 1.0
  * @date 2020-04-15
  */
-public class Cloth {
+public class Head {
 }
