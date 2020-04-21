@@ -34,6 +34,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
  * Configuration that captures all checkpointing related settings.
+ * Checkpoint 相关的配置项
  */
 @Public
 public class CheckpointConfig implements java.io.Serializable {
@@ -42,41 +43,63 @@ public class CheckpointConfig implements java.io.Serializable {
 
 	private static final Logger LOG = LoggerFactory.getLogger(CheckpointConfig.class);
 
-	/** The default checkpoint mode: exactly once. */
+	/**
+	 * The default checkpoint mode: exactly once.
+	 */
 	public static final CheckpointingMode DEFAULT_MODE = CheckpointingMode.EXACTLY_ONCE;
 
-	/** The default timeout of a checkpoint attempt: 10 minutes. */
+	/**
+	 * The default timeout of a checkpoint attempt: 10 minutes.
+	 */
 	public static final long DEFAULT_TIMEOUT = 10 * 60 * 1000;
 
-	/** The default minimum pause to be made between checkpoints: none. */
+	/**
+	 * The default minimum pause to be made between checkpoints: none.
+	 */
 	public static final long DEFAULT_MIN_PAUSE_BETWEEN_CHECKPOINTS = 0;
 
-	/** The default limit of concurrently happening checkpoints: one. */
+	/**
+	 * The default limit of concurrently happening checkpoints: one.
+	 */
 	public static final int DEFAULT_MAX_CONCURRENT_CHECKPOINTS = 1;
 
 	public static final int UNDEFINED_TOLERABLE_CHECKPOINT_NUMBER = -1;
 
 	// ------------------------------------------------------------------------
 
-	/** Checkpointing mode (exactly-once vs. at-least-once). */
+	/**
+	 * Checkpointing mode (exactly-once vs. at-least-once).
+	 */
 	private CheckpointingMode checkpointingMode = DEFAULT_MODE;
 
-	/** Periodic checkpoint triggering interval. */
+	/**
+	 * Periodic checkpoint triggering interval.
+	 */
 	private long checkpointInterval = -1; // disabled
 
-	/** Maximum time checkpoint may take before being discarded. */
+	/**
+	 * Maximum time checkpoint may take before being discarded.
+	 */
 	private long checkpointTimeout = DEFAULT_TIMEOUT;
 
-	/** Minimal pause between checkpointing attempts. */
+	/**
+	 * Minimal pause between checkpointing attempts.
+	 */
 	private long minPauseBetweenCheckpoints = DEFAULT_MIN_PAUSE_BETWEEN_CHECKPOINTS;
 
-	/** Maximum number of checkpoint attempts in progress at the same time. */
+	/**
+	 * Maximum number of checkpoint attempts in progress at the same time.
+	 */
 	private int maxConcurrentCheckpoints = DEFAULT_MAX_CONCURRENT_CHECKPOINTS;
 
-	/** Flag to force checkpointing in iterative jobs. */
+	/**
+	 * Flag to force checkpointing in iterative jobs.
+	 */
 	private boolean forceCheckpointing;
 
-	/** Cleanup behaviour for persistent checkpoints. */
+	/**
+	 * Cleanup behaviour for persistent checkpoints.
+	 */
 	private ExternalizedCheckpointCleanup externalizedCheckpointCleanup;
 
 	/**
@@ -89,13 +112,15 @@ public class CheckpointConfig implements java.io.Serializable {
 	@Deprecated
 	private boolean failOnCheckpointingErrors = true;
 
-	/** Determines if a job will fallback to checkpoint when there is a more recent savepoint. **/
+	/**
+	 * Determines if a job will fallback to checkpoint when there is a more recent savepoint.
+	 **/
 	private boolean preferCheckpointForRecovery = false;
 
 	/**
 	 * Determines the threshold that we tolerance declined checkpoint failure number.
 	 * The default value is -1 meaning undetermined and not set via {@link #setTolerableCheckpointFailureNumber(int)}.
-	 * */
+	 */
 	private int tolerableCheckpointFailureNumber = UNDEFINED_TOLERABLE_CHECKPOINT_NUMBER;
 
 	// ------------------------------------------------------------------------
@@ -236,7 +261,6 @@ public class CheckpointConfig implements java.io.Serializable {
 	 * Checks whether checkpointing is forced, despite currently non-checkpointable iteration feedback.
 	 *
 	 * @return True, if checkpointing is forced, false otherwise.
-	 *
 	 * @deprecated This will be removed once iterations properly participate in checkpointing.
 	 */
 	@Deprecated
@@ -249,7 +273,6 @@ public class CheckpointConfig implements java.io.Serializable {
 	 * Checks whether checkpointing is forced, despite currently non-checkpointable iteration feedback.
 	 *
 	 * @param forceCheckpointing The flag to force checkpointing.
-	 *
 	 * @deprecated This will be removed once iterations properly participate in checkpointing.
 	 */
 	@Deprecated

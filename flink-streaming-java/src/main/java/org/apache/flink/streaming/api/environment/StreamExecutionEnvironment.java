@@ -116,6 +116,8 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * <p>The environment provides methods to control the job execution (such as setting the parallelism
  * or the fault tolerance/checkpointing parameters) and to interact with the outside world (data access).
  *
+ * 流任务的执行上下文
+ *
  * @see org.apache.flink.streaming.api.environment.LocalStreamEnvironment
  * @see org.apache.flink.streaming.api.environment.RemoteStreamEnvironment
  */
@@ -150,6 +152,10 @@ public class StreamExecutionEnvironment {
 	/** Settings that control the checkpointing behavior. */
 	private final CheckpointConfig checkpointCfg = new CheckpointConfig();
 
+	/**
+	 * 保留生成 DataStream 的所有转换。
+	 * 基于此生成 StreamGraph
+	 */
 	protected final List<Transformation<?>> transformations = new ArrayList<>();
 
 	private long bufferTimeout = DEFAULT_NETWORK_BUFFER_TIMEOUT;

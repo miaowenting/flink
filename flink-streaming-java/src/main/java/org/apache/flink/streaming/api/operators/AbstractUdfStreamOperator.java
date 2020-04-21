@@ -41,6 +41,9 @@ import static java.util.Objects.requireNonNull;
  * function. This class handles the opening and closing of the user-defined functions,
  * as part of the operator life cycle.
  *
+ * 提供了自定义处理函数对应的算子的基本实现。
+ * 至于具体到 map/filter 等操作对应的 StreamOperator，基本上都是在 AbstractUdfStreamOperator 的基础上实现的。
+ *
  * @param <OUT>
  *            The output type of the operator
  * @param <F>

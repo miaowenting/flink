@@ -110,6 +110,10 @@ import java.util.List;
  * <li>{@link DataStream#filter}
  * </ul>
  *
+ * 表征了由同一种类型元素构成的数据流.
+ * 通过对 DataStream 应用 map/filter 等操作，可以将一个 DataStream 转换为另一个 DataStream，
+ * 这个转换的过程就是根据不同的操作生成不同的 StreamTransformation，并将其加入 StreamExecutionEnvironment 的 transformations 列表中。
+ *
  * @param <T> The type of the elements in this stream.
  */
 @Public
@@ -1272,6 +1276,9 @@ public class DataStream<T> {
 		return doTransform(operatorName, outTypeInfo, operatorFactory);
 	}
 
+	/**
+	 * 核心转换方法
+	 */
 	protected <R> SingleOutputStreamOperator<R> doTransform(
 			String operatorName,
 			TypeInformation<R> outTypeInfo,
@@ -1280,6 +1287,7 @@ public class DataStream<T> {
 		// read the output type of the input Transform to coax out errors about MissingTypeInfo
 		transformation.getOutputType();
 
+		// 构造 Transformation
 		OneInputTransformation<T, R> resultTransform = new OneInputTransformation<>(
 				this.transformation,
 				operatorName,
@@ -1287,9 +1295,11 @@ public class DataStream<T> {
 				outTypeInfo,
 				environment.getParallelism());
 
+		// 将 Transformation 封装进 SingleOutputStreamOperator 返回
 		@SuppressWarnings({"unchecked", "rawtypes"})
 		SingleOutputStreamOperator<R> returnStream = new SingleOutputStreamOperator(environment, resultTransform);
 
+		// 添加到 StreamExecutionEnvironment 的 transformations 列表中
 		getExecutionEnvironment().addOperator(resultTransform);
 
 		return returnStream;

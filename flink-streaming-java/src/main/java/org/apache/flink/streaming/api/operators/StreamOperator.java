@@ -41,6 +41,8 @@ import java.io.Serializable;
  * the timer service, timer callbacks are also guaranteed not to be called concurrently with
  * methods on {@code StreamOperator}.
  *
+ * 定义了对一个具体的算子的生命周期的管理
+ *
  * @param <OUT> The output type of the operator
  */
 @PublicEvolving

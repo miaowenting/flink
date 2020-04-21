@@ -51,6 +51,8 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * and we do not want to store a reference indefinitely, thus preventing cleanup of
  * the initial state structure by the Garbage Collector.
  *
+ * 是所有可以在 TaskManager 中运行的任务的抽象基础类，包括流式任务和批任务。
+ *
  * <p>Any subclass that supports recoverable state and participates in
  * checkpointing needs to override {@link #triggerCheckpointAsync(CheckpointMetaData, CheckpointOptions, boolean)},
  * {@link #triggerCheckpointOnBarrier(CheckpointMetaData, CheckpointOptions, CheckpointMetrics)},

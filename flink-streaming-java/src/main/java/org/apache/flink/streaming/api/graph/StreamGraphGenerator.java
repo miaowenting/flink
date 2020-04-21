@@ -84,6 +84,10 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * {@code HashPartition}. This transformation returns the ID 4. Then we transform the {@code Map-3}.
  * We add the edge {@code 4 -> 3}. The {@code StreamGraph} resolved the actual node with ID 1 and
  * creates and edge {@code 1 -> 3} with the property HashPartition.
+ *
+ * 基于 StreamExecutionEnvironment 的 transformations 列表生成 StreamGraph
+ *
+ *
  */
 @Internal
 public class StreamGraphGenerator {
@@ -206,6 +210,10 @@ public class StreamGraphGenerator {
 
 		alreadyTransformed = new HashMap<>();
 
+		/**
+		 * 遍历 transformations 列表，递归调用 transform 方法。
+		 * 对于每一个 Transformation ，确保当前上游已经完成转换，转换成 StreamGraph 中的 StreamNode，并为上下游节点添加 StreamEdge
+		 */
 		for (Transformation<?> transformation: transformations) {
 			transform(transformation);
 		}
@@ -246,6 +254,11 @@ public class StreamGraphGenerator {
 		// call at least once to trigger exceptions about MissingTypeInfo
 		transform.getOutputType();
 
+		// 对于不同类型的 Transformation，分别调用对应的转换方法
+		// 只有 OneInputTransformation、TwoInputTransformation、SourceTransformation、SinkTransformation 会生成 StreamNode，
+		// 会生成 StreamNode.
+		// 像 Partitioning, split/select, union 这些是不包含物理转换操作的，会生成一个带有特定属性的虚拟节点，
+		// 当添加一条有虚拟节点指向下游节点的边时，会找到虚拟节点上游的物理节点，在两个物理节点之间添加边，并把虚拟转换操作的属性附着上去。
 		Collection<Integer> transformedIds;
 		if (transform instanceof OneInputTransformation<?, ?>) {
 			transformedIds = transformOneInputTransform((OneInputTransformation<?, ?>) transform);
@@ -337,9 +350,11 @@ public class StreamGraphGenerator {
 		Transformation<T> input = partition.getInput();
 		List<Integer> resultIds = new ArrayList<>();
 
+		// 递归遍历转换上游节点
 		Collection<Integer> transformedIds = transform(input);
 		for (Integer transformedId: transformedIds) {
 			int virtualId = Transformation.getNewNodeId();
+			// 添加虚拟的 Partition 节点
 			streamGraph.addVirtualPartitionNode(
 					transformedId, virtualId, partition.getPartitioner(), partition.getShuffleMode());
 			resultIds.add(virtualId);
@@ -642,15 +657,19 @@ public class StreamGraphGenerator {
 	 */
 	private <IN, OUT> Collection<Integer> transformOneInputTransform(OneInputTransformation<IN, OUT> transform) {
 
+		// 首先确保上游节点完成转换
 		Collection<Integer> inputIds = transform(transform.getInput());
 
 		// the recursive call might have already transformed this
+		// 由于是递归调用的，可能已经完成了转换
 		if (alreadyTransformed.containsKey(transform)) {
 			return alreadyTransformed.get(transform);
 		}
 
+		// 确定共享资源组，如果用户没有指定，默认是 default
 		String slotSharingGroup = determineSlotSharingGroup(transform.getSlotSharingGroup(), inputIds);
 
+		// 向 StreamGraph 中添加 Operator，这一步会生成对应的 StreamNode
 		streamGraph.addOperator(transform.getId(),
 				slotSharingGroup,
 				transform.getCoLocationGroupKey(),
@@ -659,16 +678,20 @@ public class StreamGraphGenerator {
 				transform.getOutputType(),
 				transform.getName());
 
+		// 设置 stateKey
 		if (transform.getStateKeySelector() != null) {
 			TypeSerializer<?> keySerializer = transform.getStateKeyType().createSerializer(executionConfig);
 			streamGraph.setOneInputStateKey(transform.getId(), transform.getStateKeySelector(), keySerializer);
 		}
 
+		// 设置 parallelism
 		int parallelism = transform.getParallelism() != ExecutionConfig.PARALLELISM_DEFAULT ?
 			transform.getParallelism() : executionConfig.getParallelism();
 		streamGraph.setParallelism(transform.getId(), parallelism);
 		streamGraph.setMaxParallelism(transform.getId(), transform.getMaxParallelism());
 
+		// 在每一个物理节点的转换上
+		// 依次连接到上游 input 节点，创建 StreamEdge，在输入节点和当前节点之间建立边的连接
 		for (Integer inputId: inputIds) {
 			streamGraph.addEdge(inputId, transform.getId(), 0);
 		}

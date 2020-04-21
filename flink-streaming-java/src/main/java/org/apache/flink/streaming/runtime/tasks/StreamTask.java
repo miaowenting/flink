@@ -129,6 +129,8 @@ import java.util.concurrent.atomic.AtomicReference;
  *        +----> task specific cleanup()
  * }</pre>
  *
+ * StreamTask 是所有流式任务的基础类
+ *
  * <p>The {@code StreamTask} has a lock object called {@code lock}. All calls to methods on a
  * {@code StreamOperator} must be synchronized on this lock object to ensure that no methods
  * are called concurrently.

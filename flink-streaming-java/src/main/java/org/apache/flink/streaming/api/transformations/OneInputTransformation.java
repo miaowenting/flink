@@ -44,8 +44,14 @@ import java.util.List;
 @Internal
 public class OneInputTransformation<IN, OUT> extends PhysicalTransformation<OUT> {
 
+	/**
+	 * 保留前向 Transformation，即输入，可以由此还原出 DAG 的拓扑结构
+	 */
 	private final Transformation<IN> input;
 
+	/**
+	 * 生成 StreamOperator 的工厂类
+	 */
 	private final StreamOperatorFactory<OUT> operatorFactory;
 
 	private KeySelector<IN, ?> stateKeySelector;
@@ -54,6 +60,8 @@ public class OneInputTransformation<IN, OUT> extends PhysicalTransformation<OUT>
 
 	/**
 	 * Creates a new {@code OneInputTransformation} from the given input and operator.
+	 *
+	 * 根据给定的 Source input 和 operator，创建 OneInputTransformation
 	 *
 	 * @param input The input {@code Transformation}
 	 * @param name The name of the {@code Transformation}, this will be shown in Visualizations and the Log

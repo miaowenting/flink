@@ -48,6 +48,8 @@ import static org.apache.flink.util.Preconditions.checkArgument;
  * A config to define the behavior of the program execution. It allows to define (among other
  * options) the following settings:
  *
+ * 配置默认并行度、Checkpointing 等机制的方法
+ *
  * <ul>
  *     <li>The default parallelism of the program, i.e., how many parallel tasks to use for
  *         all functions that do not define a specific value directly.</li>
