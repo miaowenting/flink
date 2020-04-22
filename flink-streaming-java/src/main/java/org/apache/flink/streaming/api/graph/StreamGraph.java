@@ -505,6 +505,7 @@ public class StreamGraph implements Pipeline {
 			}
 			addEdgeInternal(upStreamVertexID, downStreamVertexID, typeNumber, partitioner, outputNames, outputTag, shuffleMode);
 		} else if (virtualPartitionNodes.containsKey(upStreamVertexID)) {
+			// 在要添加边时，发现上游节点是虚拟 partition 节点，从缓存中取出 StreamPartitioner
 			int virtualId = upStreamVertexID;
 			upStreamVertexID = virtualPartitionNodes.get(virtualId).f0;
 			if (partitioner == null) {

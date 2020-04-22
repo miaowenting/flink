@@ -614,6 +614,7 @@ public class DataStream<T> {
 	 * @return The transformed {@link DataStream}.
 	 */
 	public <R> SingleOutputStreamOperator<R> map(MapFunction<T, R> mapper, TypeInformation<R> outputType) {
+		// 先将 MapFunction 封装进 StreamMap 这个 operator 中，再转换成 transformation 添加到 Environment 中。
 		return transform("Map", outputType, new StreamMap<>(clean(mapper)));
 	}
 
