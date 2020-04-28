@@ -40,6 +40,9 @@ public class StreamGraphTranslator implements FlinkPipelineTranslator {
 
 	private static final Logger LOG = LoggerFactory.getLogger(StreamGraphTranslator.class);
 
+	/**
+	 * 其实就是调用 StreamGraph 自己的 getJobGraph 方法生成 JobGraph
+	 */
 	@Override
 	public JobGraph translateToJobGraph(
 			Pipeline pipeline,

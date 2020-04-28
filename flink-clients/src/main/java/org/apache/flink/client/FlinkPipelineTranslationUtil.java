@@ -38,6 +38,7 @@ public final class FlinkPipelineTranslationUtil {
 			Configuration optimizerConfiguration,
 			int defaultParallelism) {
 
+		// 通过反射得到 FlinkPipelineTranslator
 		FlinkPipelineTranslator pipelineTranslator = getPipelineTranslator(pipeline);
 
 		return pipelineTranslator.translateToJobGraph(pipeline,
@@ -62,6 +63,7 @@ public final class FlinkPipelineTranslationUtil {
 
 		FlinkPipelineTranslator streamGraphTranslator = reflectStreamGraphTranslator();
 
+		// 其实就是判断当前的 Pipeline 实例是不是 StreamGraph
 		if (!streamGraphTranslator.canTranslate(pipeline)) {
 			throw new RuntimeException("Translator " + streamGraphTranslator + " cannot translate "
 					+ "the given pipeline " + pipeline + ".");
@@ -75,6 +77,8 @@ public final class FlinkPipelineTranslationUtil {
 		// to flink-java. For flink-java does not depend on runtime, clients or optimizer and
 		// we have the translation code in clients/optimizer. On the other hand,
 		// flink-streaming-java depends on runtime and clients.
+		// 因为这个类在 flink-streaming-java 模块中，FlinkPipelineTranslationUtil 在 flink-clients 模块中，
+		// flink-clients 模块没有引入 flink-streaming-java 模块，所以只能通过反射拿到
 
 		Class<?> streamGraphTranslatorClass;
 		try {

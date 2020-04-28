@@ -30,11 +30,17 @@ import org.apache.flink.core.execution.PipelineExecutorFactory;
 @Internal
 public class LocalExecutorFactory implements PipelineExecutorFactory {
 
+	/**
+	 * execution.target 配置项对应的值为 "local"
+	 */
 	@Override
 	public boolean isCompatibleWith(final Configuration configuration) {
 		return LocalExecutor.NAME.equalsIgnoreCase(configuration.get(DeploymentOptions.TARGET));
 	}
 
+	/**
+	 * 直接 new 一个 LocalExecutor 返回
+	 */
 	@Override
 	public PipelineExecutor getExecutor(final Configuration configuration) {
 		return new LocalExecutor();

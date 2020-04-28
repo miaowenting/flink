@@ -38,6 +38,10 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
  * The base class for job vertexes.
+ * 在 StreamGraph 中，每一个算子（Operator）都对应了图中的一个节点(StreamNode)。StreamGraph 会被进一步优化，将多个符合条件的节点
+ * 串联（Chain）成一个节点，从而减少数据在不同节点之间的流动所产生的序列化、反序列化、网络传输的开销。
+ * JobVertex 相当于是 JobGraph 的顶点，跟 StreamNode 的区别是，它是 Operator Chain 之后的顶点，会包含多个 StreamNode。
+ * 其输入是 JobEdge 列表，输出是 IntermediateDataSet 列表。
  */
 public class JobVertex implements java.io.Serializable {
 
@@ -49,25 +53,46 @@ public class JobVertex implements java.io.Serializable {
 	// Members that define the structure / topology of the graph
 	// --------------------------------------------------------------------------------------------
 
-	/** The ID of the vertex. */
+	/**
+	 * The ID of the vertex.
+	 * 顶点的id
+	 */
 	private final JobVertexID id;
 
-	/** The alternative IDs of the vertex. */
+	/**
+	 * The alternative IDs of the vertex.
+	 * 顶点的可选id
+	 */
 	private final ArrayList<JobVertexID> idAlternatives = new ArrayList<>();
 
-	/** The IDs of all operators contained in this vertex. */
+	/**
+	 * The IDs of all operators contained in this vertex.
+	 * 此顶点中包含的所有运算符的ID
+	 */
 	private final ArrayList<OperatorID> operatorIDs = new ArrayList<>();
 
-	/** The alternative IDs of all operators contained in this vertex. */
+	/**
+	 * The alternative IDs of all operators contained in this vertex.
+	 * 此顶点中包含的所有运算符的可选ID
+	 */
 	private final ArrayList<OperatorID> operatorIdsAlternatives = new ArrayList<>();
 
-	/** List of produced data sets, one per writer. */
+	/**
+	 * List of produced data sets, one per writer.
+	 * 生成的数据集列表，每个 writer 一个
+	 */
 	private final ArrayList<IntermediateDataSet> results = new ArrayList<>();
 
-	/** List of edges with incoming data. One per Reader. */
+	/**
+	 * List of edges with incoming data. One per Reader.
+	 * 包含传入数据的边的列表，每个 reader 一个
+	 */
 	private final ArrayList<JobEdge> inputs = new ArrayList<>();
 
-	/** Number of subtasks to split this task into at runtime. */
+	/**
+	 * Number of subtasks to split this task into at runtime.
+	 * 运行时要将此任务拆分为的子任务数
+	 */
 	private int parallelism = ExecutionConfig.PARALLELISM_DEFAULT;
 
 	/** Maximum number of subtasks to split this task into a runtime. */

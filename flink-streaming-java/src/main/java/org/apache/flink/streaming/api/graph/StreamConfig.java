@@ -50,6 +50,9 @@ import static org.apache.flink.util.Preconditions.checkArgument;
 /**
  * Internal configuration for a {@link StreamOperator}. This is created and populated by the
  * {@link StreamingJobGraphGenerator}.
+ *
+ * 对于每一个 StreamOperator ，在生成 JobGraph 的过程中 StreamingJobGraphGenerator 都会创建一个对应的 StreamConfig 。
+ * StreamConfig 中保存了这个算子(operator) 在运行时需要的所有配置信息，这些信息都是通过 key/value 的形式存储在 Configuration 中的。
  */
 @Internal
 public class StreamConfig implements Serializable {
@@ -227,6 +230,9 @@ public class StreamConfig implements Serializable {
 		return getBufferTimeout() == 0;
 	}
 
+	/**
+	 * 保存 StreamOperator 信息
+	 */
 	@VisibleForTesting
 	public void setStreamOperator(StreamOperator<?> operator) {
 		setStreamOperatorFactory(SimpleOperatorFactory.of(operator));

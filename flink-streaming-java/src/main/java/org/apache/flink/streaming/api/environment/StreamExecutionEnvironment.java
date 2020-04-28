@@ -1623,6 +1623,8 @@ public class StreamExecutionEnvironment {
 	 *
 	 * @return The result of the job execution, containing elapsed time and accumulators.
 	 * @throws Exception which occurs during job execution.
+	 *
+	 * Streaming 程序的提交入口
 	 */
 	public JobExecutionResult execute() throws Exception {
 		return execute(DEFAULT_JOB_NAME);
@@ -1634,6 +1636,8 @@ public class StreamExecutionEnvironment {
 	 * for example printing results or forwarding them to a message queue.
 	 *
 	 * <p>The program execution will be logged and displayed with the provided name
+	 *
+	 * 生成 StreamGraph
 	 *
 	 * @param jobName
 	 * 		Desired name of the job
@@ -1651,12 +1655,14 @@ public class StreamExecutionEnvironment {
 	 * the program that have resulted in a "sink" operation. Sink operations are
 	 * for example printing results or forwarding them to a message queue.
 	 *
+	 * 生成 JobGraph ，提交任务，并响应 JobListeners
 	 * @param streamGraph the stream graph representing the transformations
 	 * @return The result of the job execution, containing elapsed time and accumulators.
 	 * @throws Exception which occurs during job execution.
 	 */
 	@Internal
 	public JobExecutionResult execute(StreamGraph streamGraph) throws Exception {
+		// 异步执行 StreamGraph 转 JobGraph 的流程和作业提交流程
 		final JobClient jobClient = executeAsync(streamGraph);
 
 		try {
@@ -1737,6 +1743,9 @@ public class StreamExecutionEnvironment {
 	 * the program that have resulted in a "sink" operation. Sink operations are
 	 * for example printing results or forwarding them to a message queue.
 	 *
+	 * 根据 execution.target 配置反射得到 PipelineExecutorFactory，拿出工厂类对应的 PipelineExecutor，执行其 execute 方法
+	 * execute的主要工作是将 StreamGraph 转成了 JobGraph，并创建相应的 ClusterClient 完成提交任务的操作。
+	 *
 	 * @param streamGraph the stream graph representing the transformations
 	 * @return A {@link JobClient} that can be used to communicate with the submitted job, completed on submission succeeded.
 	 * @throws Exception which occurs during job execution.
@@ -1746,20 +1755,25 @@ public class StreamExecutionEnvironment {
 		checkNotNull(streamGraph, "StreamGraph cannot be null.");
 		checkNotNull(configuration.get(DeploymentOptions.TARGET), "No execution.target specified in your configuration file.");
 
+		// SPI机制
 		// 根据flink Configuration中的"execution.target"加载 PipelineExecutorFactory
 		// PipelineExecutorFactory 的实现类在flink-clients包或者flink-yarn包里，因此需要在pom.xml中添加此依赖
 		final PipelineExecutorFactory executorFactory =
 			executorServiceLoader.getExecutorFactory(configuration);
 
+		// 反射出的 PipelineExecutorFactory 类不能为空
 		checkNotNull(
 			executorFactory,
 			"Cannot find compatible factory for specified execution.target (=%s)",
 			configuration.get(DeploymentOptions.TARGET));
 
+		// 根据加载到的 PipelineExecutorFactory 工厂类，获取其对应的 PipelineExecutor，
+		// 并执行 PipelineExecutor 的 execute() 方法，将 StreamGraph 转成 JobGraph
 		CompletableFuture<JobClient> jobClientFuture = executorFactory
 			.getExecutor(configuration)
 			.execute(streamGraph, configuration);
 
+		// 异步调用的返回结果
 		try {
 			JobClient jobClient = jobClientFuture.get();
 			jobListeners.forEach(jobListener -> jobListener.onJobSubmitted(jobClient, null));

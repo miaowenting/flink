@@ -22,33 +22,58 @@ package org.apache.flink.runtime.jobgraph;
  * This class represent edges (communication channels) in a job graph.
  * The edges always go from an intermediate result partition to a job vertex.
  * An edge is parametrized with its {@link DistributionPattern}.
+ *
+ * 在 StreamGraph 中，StreamNode 之间是通过 StreamEdge 建立连接的。在 JobGraph 中，对应的是 JobEdge 。
+ * 相当于是 JobGraph 中的边（连接通道），这个边连接的是一个 IntermediateDataSet 跟一个要消费的 JobVertex 。
+ * 和 StreamEdge 中同时保留了源节点和目标节点（ sourceId 和 targetId ）不同，在 JobEdge 中只有源节点的信息。
+ * 由于 JobVertex 中保存了所有输入的 JobEdge 的信息，因而同样可以在两个节点之间建立连接。
+ *
  */
 public class JobEdge implements java.io.Serializable {
 
 	private static final long serialVersionUID = 1L;
 	
 	
-	/** The vertex connected to this edge. */
+	/**
+	 * The vertex connected to this edge.
+	 * 连接到该边的顶点
+	 */
 	private final JobVertex target;
 
-	/** The distribution pattern that should be used for this job edge. */
+	/**
+	 * The distribution pattern that should be used for this job edge.
+	 * 应用于此作业边的分发模式
+	 */
 	private final DistributionPattern distributionPattern;
 	
-	/** The data set at the source of the edge, may be null if the edge is not yet connected*/
+	/**
+	 * The data set at the source of the edge, may be null if the edge is not yet connected
+	 * 如果边尚未连接，则边的 source 源处的数据集可能为空
+	 */
 	private IntermediateDataSet source;
 	
-	/** The id of the source intermediate data set */
+	/**
+	 * The id of the source intermediate data set
+	 * 源中间数据集的id
+	 */
 	private IntermediateDataSetID sourceId;
 	
 	/** Optional name for the data shipping strategy (forward, partition hash, rebalance, ...),
-	 * to be displayed in the JSON plan */
+	 * to be displayed in the JSON plan
+	 * JSON计划中显示的数据传送策略（转发、分区哈希、重新平衡…）的可选名称
+	 */
 	private String shipStrategyName;
 
 	/** Optional name for the pre-processing operation (sort, combining sort, ...),
-	 * to be displayed in the JSON plan */
+	 * to be displayed in the JSON plan
+	 * JSON计划中显示的预处理操作的可选名称（排序、组合排序...）的可选名称
+	 */
 	private String preProcessingOperationName;
 
-	/** Optional description of the caching inside an operator, to be displayed in the JSON plan */
+	/**
+	 * Optional description of the caching inside an operator, to be displayed in the JSON plan
+	 * JSON计划中显示的操作内部缓存的可选描述
+	 */
 	private String operatorLevelCachingDescription;
 	
 	/**

@@ -31,19 +31,36 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * 
  * Intermediate data sets may be read by other operators, materialized, or
  * discarded.
+ *
+ * JobVertex 产生的数据被抽象为 IntermediateDataSet ，字面意思为中间数据集。
+ * JobEdge 是和节点的输出结果相关联的，其实就是指可以把 JobEdge 看作是 IntermediateDataSet 的消费者，那么 JobVertex 自然就是生产者了。
+ * 它是由一个 Operator(可能是 Source，也可能是某个中间算子) 产生的一个中间数据集。
  */
 public class IntermediateDataSet implements java.io.Serializable {
 	
 	private static final long serialVersionUID = 1L;
 
-	
-	private final IntermediateDataSetID id; 		// the identifier
-	
-	private final JobVertex producer;			// the operation that produced this data set
-	
+	/**
+	 * the identifier
+	 * IntermediateDataSet ID
+	 */
+	private final IntermediateDataSetID id;
+
+	/**
+	 * the operation that produced this data set
+	 * JobVertex 是 IntermediateDataSet 的生产者
+	 */
+	private final JobVertex producer;
+
+	/**
+	 * JobEdge 是和节点的输出结果相关联的，其实就是指可以把 JobEdge 看作是 IntermediateDataSet 的消费者
+	 */
 	private final List<JobEdge> consumers = new ArrayList<JobEdge>();
 
-	// The type of partition to use at runtime
+	/**
+	 * The type of partition to use at runtime
+	 * 运行时要使用的分区类型，表示中间结果类型
+ 	 */
 	private final ResultPartitionType resultType;
 	
 	// --------------------------------------------------------------------------------------------

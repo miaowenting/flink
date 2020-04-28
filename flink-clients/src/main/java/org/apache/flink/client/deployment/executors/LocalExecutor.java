@@ -59,10 +59,14 @@ public class LocalExecutor implements PipelineExecutor {
 		// we only support attached execution with the local executor.
 		checkState(configuration.getBoolean(DeploymentOptions.ATTACHED));
 
+		// StreamGraph 转成 JobGraph
 		final JobGraph jobGraph = getJobGraph(pipeline, configuration);
-		final MiniCluster miniCluster = startMiniCluster(jobGraph, configuration);
-		final MiniClusterClient clusterClient = new MiniClusterClient(configuration, miniCluster);
 
+		// local 模式，本地启动一个 Mini Cluster
+		final MiniCluster miniCluster = startMiniCluster(jobGraph, configuration);
+		// 创建 MiniClusterClient ，准备提交任务
+		final MiniClusterClient clusterClient = new MiniClusterClient(configuration, miniCluster);
+        // 提交任务
 		CompletableFuture<JobID> jobIdFuture = clusterClient.submitJob(jobGraph);
 
 		jobIdFuture
@@ -87,6 +91,7 @@ public class LocalExecutor implements PipelineExecutor {
 			plan.setDefaultParallelism(slotsPerTaskManager * numTaskManagers);
 		}
 
+		// 这里调用 FlinkPipelineTranslationUtil 的 getJobGraph() 方法
 		return FlinkPipelineTranslationUtil.getJobGraph(pipeline, configuration, 1);
 	}
 

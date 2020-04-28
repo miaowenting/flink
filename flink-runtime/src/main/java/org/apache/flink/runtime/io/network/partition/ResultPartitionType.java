@@ -20,6 +20,8 @@ package org.apache.flink.runtime.io.network.partition;
 
 /**
  * Type of a result partition.
+ * 表示中间结果的类型，这个要结合 Flink 任务运行时的内存管理机制来看，
+ * 目前在 Stream 模式下使用的类型是 PIPELINED_BOUNDED(true,true,true,false)
  */
 public enum ResultPartitionType {
 
@@ -73,20 +75,33 @@ public enum ResultPartitionType {
 	 */
 	PIPELINED_BOUNDED(true, true, true, false);
 
-	/** Can the partition be consumed while being produced? */
+	/**
+	 * Can the partition be consumed while being produced?
+	 * 分区正在生产时是否能被消费？
+	 */
 	private final boolean isPipelined;
 
-	/** Does the partition produce back pressure when not consumed? */
+	/**
+	 * Does the partition produce back pressure when not consumed?
+	 * 当分区不消费时是否产生背压？
+	 */
 	private final boolean hasBackPressure;
 
-	/** Does this partition use a limited number of (network) buffers? */
+	/**
+	 * Does this partition use a limited number of (network) buffers?
+	 * 分区是否使用有限制的网络 buffer 数？
+	 */
 	private final boolean isBounded;
 
-	/** This partition will not be released after consuming if 'isPersistent' is true. */
+	/**
+	 * This partition will not be released after consuming if 'isPersistent' is true.
+	 * 如果 isPersistent 为 true，则在使用后不会释放此分区
+	 */
 	private final boolean isPersistent;
 
 	/**
 	 * Specifies the behaviour of an intermediate result partition at runtime.
+	 * 指定运行时中间结果分区的行为
 	 */
 	ResultPartitionType(boolean isPipelined, boolean hasBackPressure, boolean isBounded, boolean isPersistent) {
 		this.isPipelined = isPipelined;
