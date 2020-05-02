@@ -45,6 +45,14 @@ import java.util.Random;
  *   <li>directed outputs.
  * </ul>
  * </p>
+ *
+ * 斐波那契数列：
+ * F(n) = F(n-1) + F(n-2)
+ *
+ * 假设初始键值对为(34,11)，则产生的斐波那契数列为：34,11,45,56,101
+ *
+ * 经过本代码运行的结果应该是((34,11),3)，需要经历3步长，即累加3次才能使得数列值 > 100，才能打到output流中
+ *
  */
 public class IterateExample {
 
@@ -64,7 +72,7 @@ public class IterateExample {
 		// obtain execution environment and set setBufferTimeout to 1 to enable
 		// continuous flushing of the output buffers (lowest latency)
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment()
-				.setBufferTimeout(1);
+			.setBufferTimeout(1);
 
 		// make parameters available in the web interface
 		env.getConfig().setGlobalJobParameters(params);
@@ -80,13 +88,17 @@ public class IterateExample {
 		}
 
 		// create an iterative data stream from the input with 5 second timeout
+		// 经过InputMap() 将Tuple2 转成 Tuple5
+		// 指定等待反馈输入的最大时间间隔，如果超过该时间间隔没有反馈元素到来，那么该迭代将会终止
 		IterativeStream<Tuple5<Integer, Integer, Integer, Integer, Integer>> it = inputStream.map(new InputMap())
-				.iterate(5000);
+			.iterate(5000);
 
 		// apply the step function to get the next Fibonacci number
 		// increment the counter and split the output with the output selector
+		// 再经过Step()步函数 获取下一个斐波那契数
+		// 并进行分流
 		SplitStream<Tuple5<Integer, Integer, Integer, Integer, Integer>> step = it.map(new Step())
-				.split(new MySelector());
+			.split(new MySelector());
 
 		// close the iteration by selecting the tuples that were directed to the
 		// 'iterate' channel in the output selector
@@ -96,7 +108,7 @@ public class IterateExample {
 		// 'output' channel then get the input pairs that have the greatest iteration counter
 		// on a 1 second sliding window
 		DataStream<Tuple2<Tuple2<Integer, Integer>, Integer>> numbers = step.select("output")
-				.map(new OutputMap());
+			.map(new OutputMap());
 
 		// emit results
 		if (params.has("output")) {
@@ -106,8 +118,12 @@ public class IterateExample {
 			numbers.print();
 		}
 
+		long startTime = System.currentTimeMillis();
+		System.out.println("Start time: " + startTime);
 		// execute the program
 		env.execute("Streaming Iteration Example");
+		System.out.println("Spent time: " + (System.currentTimeMillis() - startTime));
+
 	}
 
 	// *************************************************************************
@@ -116,6 +132,7 @@ public class IterateExample {
 
 	/**
 	 * Generate BOUND number of random integer pairs from the range from 1 to BOUND/2.
+	 * 随机生成Integer键值对的source
 	 */
 	private static class RandomFibonacciSource implements SourceFunction<Tuple2<Integer, Integer>> {
 		private static final long serialVersionUID = 1L;
@@ -163,12 +180,13 @@ public class IterateExample {
 	 * A counter is attached to the tuple and incremented in every iteration step.
 	 */
 	public static class InputMap implements MapFunction<Tuple2<Integer, Integer>, Tuple5<Integer, Integer, Integer,
-			Integer, Integer>> {
+		Integer, Integer>> {
 		private static final long serialVersionUID = 1L;
 
 		@Override
 		public Tuple5<Integer, Integer, Integer, Integer, Integer> map(Tuple2<Integer, Integer> value) throws
-				Exception {
+			Exception {
+			// 结果map转换将Tuple2转成Tuple5
 			return new Tuple5<>(value.f0, value.f1, value.f0, value.f1, 0);
 		}
 	}
@@ -177,13 +195,13 @@ public class IterateExample {
 	 * Iteration step function that calculates the next Fibonacci number.
 	 */
 	public static class Step implements
-			MapFunction<Tuple5<Integer, Integer, Integer, Integer, Integer>, Tuple5<Integer, Integer, Integer,
-					Integer, Integer>> {
+		MapFunction<Tuple5<Integer, Integer, Integer, Integer, Integer>, Tuple5<Integer, Integer, Integer,
+			Integer, Integer>> {
 		private static final long serialVersionUID = 1L;
 
 		@Override
 		public Tuple5<Integer, Integer, Integer, Integer, Integer> map(Tuple5<Integer, Integer, Integer, Integer,
-				Integer> value) throws Exception {
+			Integer> value) throws Exception {
 			return new Tuple5<>(value.f0, value.f1, value.f3, value.f2 + value.f3, ++value.f4);
 		}
 	}
@@ -198,8 +216,11 @@ public class IterateExample {
 		public Iterable<String> select(Tuple5<Integer, Integer, Integer, Integer, Integer> value) {
 			List<String> output = new ArrayList<>();
 			if (value.f2 < BOUND && value.f3 < BOUND) {
+				// 指定流的一部分用于反馈给迭代头
+				// 反馈流反馈给迭代头就意味着一个迭代的完整逻辑的完成
 				output.add("iterate");
 			} else {
+				// 指定流的另一部分发给下游
 				output.add("output");
 			}
 			return output;
@@ -210,13 +231,13 @@ public class IterateExample {
 	 * Giving back the input pair and the counter.
 	 */
 	public static class OutputMap implements MapFunction<Tuple5<Integer, Integer, Integer, Integer, Integer>,
-			Tuple2<Tuple2<Integer, Integer>, Integer>> {
+		Tuple2<Tuple2<Integer, Integer>, Integer>> {
 		private static final long serialVersionUID = 1L;
 
 		@Override
 		public Tuple2<Tuple2<Integer, Integer>, Integer> map(Tuple5<Integer, Integer, Integer, Integer, Integer>
-				value) throws
-				Exception {
+																 value) throws
+			Exception {
 			return new Tuple2<>(new Tuple2<>(value.f0, value.f1), value.f4);
 		}
 	}

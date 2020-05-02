@@ -47,7 +47,7 @@ public class WindowJoin {
 	// *************************************************************************
 
 	public static void main(String[] args) throws Exception {
-		// parse the parameters
+		// parse the paSideOutputExamplerameters
 		final ParameterTool params = ParameterTool.fromArgs(args);
 		final long windowSize = params.getLong("windowSize", 2000);
 		final long rate = params.getLong("rate", 3L);
@@ -63,7 +63,9 @@ public class WindowJoin {
 		env.getConfig().setGlobalJobParameters(params);
 
 		// create the data sources for both grades and salaries
+		// john,4
 		DataStream<Tuple2<String, Integer>> grades = GradeSource.getSource(env, rate);
+		// john,18000
 		DataStream<Tuple2<String, Integer>> salaries = SalarySource.getSource(env, rate);
 
 		// run the actual window join program
@@ -71,6 +73,7 @@ public class WindowJoin {
 		DataStream<Tuple3<String, Integer, Integer>> joinedStream = runWindowJoin(grades, salaries, windowSize);
 
 		// print the results with a single thread, rather than in parallel
+		// 输出 john,4,18000
 		joinedStream.print().setParallelism(1);
 
 		// execute program

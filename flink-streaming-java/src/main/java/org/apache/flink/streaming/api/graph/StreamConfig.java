@@ -344,6 +344,9 @@ public class StreamConfig implements Serializable {
 		}
 	}
 
+	/**
+	 * 设置数据集的消费出边集合
+	 */
 	public void setChainedOutputs(List<StreamEdge> chainedOutputs) {
 		try {
 			InstantiationUtil.writeObjectToConfig(chainedOutputs, this.config, CHAINED_OUTPUTS);

@@ -33,6 +33,40 @@ import java.util.List;
 /**
  * An example of session windowing that keys events by ID and groups and counts them in
  * session with gaps of 3 milliseconds.
+ *
+ * 输出结果：
+ * (a,1,1)
+ *
+ * (b,1,3)
+ * (c,6,1)
+ *
+ * (a,10,1)
+ * (c,11,1)
+ *
+ * watermark生成与触发计算详情如下：
+ * Advanced watermark 0
+ * Advanced watermark 2
+ * Advanced watermark 4
+ * # watermark 4 = a 窗口的结束时间4，所以触发a计算输出
+ * Timer{timestamp=3, key=(a), namespace=TimeWindow{start=1, end=4}}
+ * (a,1,1)
+ * Advanced watermark 5
+ * Advanced watermark 9
+ * # (b,1,1)、(b,3,1)、b(b,5,1)，这3条数据会进行窗口合并，所以这里的结束时间是8
+ * # watermark 9 > b 窗口的结束时间8，所以触发b计算输出
+ * Timer{timestamp=7, key=(b), namespace=TimeWindow{start=1, end=8}}
+ * (b,1,3)
+ * # watermark 9 = c 窗口的结束时间9，所以触发c计算输出
+ * Timer{timestamp=8, key=(c), namespace=TimeWindow{start=6, end=9}}
+ * (c,6,1)
+ * Advanced watermark 10
+ * Advanced watermark 9223372036854775807
+ * # watermark 9223372036854775807 > a 窗口的结束时间13，所以触发a计算输出
+ * Timer{timestamp=12, key=(a), namespace=TimeWindow{start=10, end=13}}
+ * (a,10,1)
+ * # watermark 9223372036854775807 > c 窗口的结束时间14，所以触发c计算输出
+ * Timer{timestamp=13, key=(c), namespace=TimeWindow{start=11, end=14}}
+ * (c,11,1)
  */
 public class SessionWindowing {
 
@@ -50,11 +84,17 @@ public class SessionWindowing {
 
 		final List<Tuple3<String, Long, Integer>> input = new ArrayList<>();
 
+		// key、event time时间戳、key出现的次数
 		input.add(new Tuple3<>("a", 1L, 1));
+
 		input.add(new Tuple3<>("b", 1L, 1));
 		input.add(new Tuple3<>("b", 3L, 1));
 		input.add(new Tuple3<>("b", 5L, 1));
+
 		input.add(new Tuple3<>("c", 6L, 1));
+
+		// 即将被窗口丢弃的数据
+		input.add(new Tuple3<>("a", 1L, 2));
 		// We expect to detect the session "a" earlier than this point (the old
 		// functionality can only detect here when the next starts)
 		input.add(new Tuple3<>("a", 10L, 1));
@@ -69,8 +109,11 @@ public class SessionWindowing {
 					public void run(SourceContext<Tuple3<String, Long, Integer>> ctx) throws Exception {
 						for (Tuple3<String, Long, Integer> value : input) {
 							ctx.collectWithTimestamp(value, value.f1);
+							// 发射watermark
 							ctx.emitWatermark(new Watermark(value.f1 - 1));
 						}
+						// input输入流中的数据读取完毕之后，发射一个大的watermark，确保触发最后的窗口计算
+						// 无限流，表示终止的watermark，需要一个超过window的end time的watermark来触发window计算
 						ctx.emitWatermark(new Watermark(Long.MAX_VALUE));
 					}
 

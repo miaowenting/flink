@@ -288,6 +288,7 @@ public class StreamingJobGraphGenerator {
 	 * <p>This will recursively create all {@link JobVertex} instances.
 	 */
 	private void setChaining(Map<Integer, byte[]> hashes, List<Map<Integer, byte[]>> legacyHashes, Map<Integer, List<Tuple2<byte[], byte[]>>> chainedOperatorHashes) {
+		// 遍历 StreamGraph 的 sourceIDs
 		for (Integer sourceNodeId : streamGraph.getSourceIDs()) {
 			createChain(sourceNodeId, sourceNodeId, hashes, legacyHashes, 0, chainedOperatorHashes);
 		}
@@ -693,9 +694,10 @@ public class StreamingJobGraphGenerator {
 					headOperator.getChainingStrategy() == ChainingStrategy.ALWAYS)
 				// 上下游节点之间的数据传输方式必须是 FORWARD ，而不能是 REBALANCE 等其他模式
 				&& (edge.getPartitioner() instanceof ForwardPartitioner)
-				// 上下游节点的并行度要一致
 				&& edge.getShuffleMode() != ShuffleMode.BATCH
+				// 上下游节点的并行度要一致
 				&& upStreamVertex.getParallelism() == downStreamVertex.getParallelism()
+			    // chain enabled 配置项为 true
 				&& streamGraph.isChainingEnabled();
 	}
 

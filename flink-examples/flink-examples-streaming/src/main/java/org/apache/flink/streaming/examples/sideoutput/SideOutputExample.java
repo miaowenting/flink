@@ -38,12 +38,14 @@ import org.apache.flink.util.OutputTag;
  * <p>This is a modified version of {@link org.apache.flink.streaming.examples.windowing.WindowWordCount}
  * that has a filter in the tokenizer and only emits some words for counting
  * while emitting the other words to a side output.
+ * 当想要拆分数据流时，通常需要复制流，使用旁路输出可以直接过滤出不要的数据
  */
 public class SideOutputExample {
 
 	/**
 	 * We need to create an {@link OutputTag} so that we can reference it when emitting
 	 * data to a side output and also to retrieve the side output stream from an operation.
+	 * OutputTag用来标识一个旁路输出流
 	 */
 	private static final OutputTag<String> rejectedWordsTag = new OutputTag<String>("rejected") {};
 
@@ -83,7 +85,9 @@ public class SideOutputExample {
 				})
 				.process(new Tokenizer());
 
+		// 旁路输出流
 		DataStream<String> rejectedWords = tokenized
+			    // 通过OutputTag从源source中获取旁路输出
 				.getSideOutput(rejectedWordsTag)
 				.map(new MapFunction<String, String>() {
 					private static final long serialVersionUID = 1L;
@@ -94,6 +98,7 @@ public class SideOutputExample {
 					}
 				});
 
+		// 正常输出流，对正常数据做5s翻滚窗口的单词统计
 		DataStream<Tuple2<String, Integer>> counts = tokenized
 				.keyBy(0)
 				.window(TumblingEventTimeWindows.of(Time.seconds(5)))
@@ -140,8 +145,10 @@ public class SideOutputExample {
 			// emit the pairs
 			for (String token : tokens) {
 				if (token.length() > 5) {
+					// 长度大于5的单词会作为旁路输出，ctx.output是将数据发送到旁路输出中
 					ctx.output(rejectedWordsTag, token);
 				} else if (token.length() > 0) {
+					// 将数据发送到常规输出中
 					out.collect(new Tuple2<>(token, 1));
 				}
 			}

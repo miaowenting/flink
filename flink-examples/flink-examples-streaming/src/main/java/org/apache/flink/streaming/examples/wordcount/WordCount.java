@@ -42,6 +42,8 @@ import org.apache.flink.util.Preconditions;
  * <li>use tuple data types,
  * <li>write and use user-defined functions.
  * </ul>
+ *
+ * 实时统计单词数量，每来一个计算一次并输出一次
  */
 public class WordCount {
 
@@ -76,7 +78,12 @@ public class WordCount {
 			System.out.println("Executing WordCount example with default input data set.");
 			System.out.println("Use --input to specify file input.");
 			// get default test text data
-			text = env.fromElements(WordCountData.WORDS);
+//			text = env.fromElements(WordCountData.WORDS);
+			text = env.fromElements(new String[] {
+				"miao,She is a programmer",
+				"wu,He is a programmer",
+				"zhao,She is a programmer"
+			});
 		}
 
 		DataStream<Tuple2<String, Integer>> counts =
@@ -92,6 +99,7 @@ public class WordCount {
 			System.out.println("Printing result to stdout. Use --output to specify output path.");
 			counts.print();
 		}
+
 		// execute program
 		env.execute("Streaming WordCount");
 	}

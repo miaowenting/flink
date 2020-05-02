@@ -652,7 +652,9 @@ public class KeyedStream<T, KEY> extends DataStream<T> {
 	 */
 	public WindowedStream<T, KEY, GlobalWindow> countWindow(long size, long slide) {
 		return window(GlobalWindows.create())
+				// 在触发计算之前之后的剔除操作
 				.evictor(CountEvictor.of(size))
+				// 触发条件是slide步长的个数
 				.trigger(CountTrigger.of(slide));
 	}
 

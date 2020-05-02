@@ -60,21 +60,35 @@ public class AsyncIOExample {
 
 	/**
 	 * A checkpointed source.
+	 * 具体功能：一个数据流 -> 不断发送一个从0递增的整数
 	 */
 	private static class SimpleSource implements SourceFunction<Integer>, ListCheckpointed<Integer> {
 		private static final long serialVersionUID = 1L;
 
 		private volatile boolean isRunning = true;
+		/**
+		 * 计数器
+		 */
 		private int counter = 0;
+		/**
+		 * 起始值
+		 */
 		private int start = 0;
 
+		/**
+		 * 储存快照状态：每次作业执行成功之后，会保存成功的上一条数据的状态，也就是start的值
+		 */
 		@Override
 		public List<Integer> snapshotState(long checkpointId, long timestamp) throws Exception {
 			return Collections.singletonList(start);
 		}
 
+		/**
+		 * 当执行到某个作业流发生异常时，Flink会调用次方法，将状态还原到上一次的成功checkpoint的那个状态点
+		 */
 		@Override
 		public void restoreState(List<Integer> state) throws Exception {
+			// 找到最新的一次checkpoint成功时start的值
 			for (Integer i : state) {
 				this.start = i;
 			}
@@ -113,6 +127,9 @@ public class AsyncIOExample {
 	 *
 	 * <p>For the real use case in production environment, the thread pool may stay in the
 	 * async client.
+	 *
+	 * 一个异步函数示例：用线程池模拟多个异步操作
+	 * 具体功能：处理流任务的异步函数
 	 */
 	private static class SampleAsyncFunction extends RichAsyncFunction<Integer, String> {
 		private static final long serialVersionUID = 2098635244857937717L;
@@ -122,12 +139,14 @@ public class AsyncIOExample {
 		/**
 		 * The result of multiplying sleepFactor with a random float is used to pause
 		 * the working thread in the thread pool, simulating a time consuming async operation.
+		 * 模拟耗时的异步操作用的：就是假装这个异步操作很耗时，耗时时长为sleepFactor
 		 */
 		private final long sleepFactor;
 
 		/**
 		 * The ratio to generate an exception to simulate an async error. For example, the error
 		 * may be a TimeoutException while visiting HBase.
+		 * 模拟异步操作出现了异常：就是假装我的流任务的异步操作出现异常啦~ 会报错：Exception : wahahaha...
 		 */
 		private final float failRatio;
 
@@ -152,17 +171,25 @@ public class AsyncIOExample {
 			ExecutorUtils.gracefulShutdown(shutdownWaitTS, TimeUnit.MILLISECONDS, executorService);
 		}
 
+		/**
+		 * 真正执行异步IO的方法
+		 * 这里用线程池模拟 source支持异步发送数据流
+		 */
 		@Override
 		public void asyncInvoke(final Integer input, final ResultFuture<String> resultFuture) {
 			executorService.submit(() -> {
 				// wait for while to simulate async operation here
+				// 模拟元素的操作时长：就是这个元素与外部系统交互的时长，然后sleep这么长的时间
 				long sleep = (long) (ThreadLocalRandom.current().nextFloat() * sleepFactor);
 				try {
 					Thread.sleep(sleep);
 
 					if (ThreadLocalRandom.current().nextFloat() < failRatio) {
+						// 模拟触发异常：就是与外部系统交互时，假装出错发出了一个异常，此处可以查看日志，观察flink如何checkpoint恢复
+						// restart-strategy.fixed-delay.attempts 默认为3，重启3次
 						resultFuture.completeExceptionally(new Exception("wahahahaha..."));
 					} else {
+						// 根据输入的input/10的余数生成key
 						resultFuture.complete(
 							Collections.singletonList("key-" + (input % 10)));
 					}
@@ -191,15 +218,25 @@ public class AsyncIOExample {
 		// parse parameters
 		final ParameterTool params = ParameterTool.fromArgs(args);
 
+		// 状态存放路径
 		final String statePath;
+		// checkpoint模式
 		final String cpMode;
+		// source生成的最大值
 		final int maxCount;
+		// RichAsyncFunction 中 线程休眠的因子
 		final long sleepFactor;
+		// 模拟RichAsyncFunction出错的概率因子
 		final float failRatio;
+		// 标志RichAsyncFunction 中的消息是有序还是无序的
 		final String mode;
+		// 设置任务的并行度
 		final int taskNum;
+		// 使用的Flink时间类型
 		final String timeType;
+		// 优雅停止RichAsyncFunction中线程池的等待毫秒数
 		final long shutdownWaitTS;
+		// RichAsyncFunction中执行异步操作的超时时间
 		final long timeout;
 
 		try {
@@ -209,6 +246,7 @@ public class AsyncIOExample {
 			maxCount = params.getInt("maxCount", 100000);
 			sleepFactor = params.getLong("sleepFactor", 100);
 			failRatio = params.getFloat("failRatio", 0.001f);
+//			failRatio = params.getFloat("failRatio", 0.5f);
 			mode = params.get("waitMode", "ordered");
 			taskNum = params.getInt("waitOperatorParallelism", 1);
 			timeType = params.get("eventType", "EventTime");
@@ -244,26 +282,27 @@ public class AsyncIOExample {
 		}
 
 		if (EXACTLY_ONCE_MODE.equals(cpMode)) {
+			// 生成checkpoint的默认间隔是1s
 			env.enableCheckpointing(1000L, CheckpointingMode.EXACTLY_ONCE);
-		}
-		else {
+		} else {
 			env.enableCheckpointing(1000L, CheckpointingMode.AT_LEAST_ONCE);
 		}
 
 		// enable watermark or not
 		if (EVENT_TIME.equals(timeType)) {
 			env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
-		}
-		else if (INGESTION_TIME.equals(timeType)) {
+		} else if (INGESTION_TIME.equals(timeType)) {
 			env.setStreamTimeCharacteristic(TimeCharacteristic.IngestionTime);
 		}
 
+		// 创建一个数据源
 		// create input stream of an single integer
 		DataStream<Integer> inputStream = env.addSource(new SimpleSource(maxCount));
 
+		// 创建async函数，通过等待来模拟异步i/o的过程
 		// create async function, which will *wait* for a while to simulate the process of async i/o
 		AsyncFunction<Integer, String> function =
-				new SampleAsyncFunction(sleepFactor, failRatio, shutdownWaitTS);
+			new SampleAsyncFunction(sleepFactor, failRatio, shutdownWaitTS);
 
 		// add async operator to streaming job
 		DataStream<String> result;
@@ -274,8 +313,7 @@ public class AsyncIOExample {
 				timeout,
 				TimeUnit.MILLISECONDS,
 				20).setParallelism(taskNum);
-		}
-		else {
+		} else {
 			result = AsyncDataStream.unorderedWait(
 				inputStream,
 				function,
@@ -285,6 +323,7 @@ public class AsyncIOExample {
 		}
 
 		// add a reduce to get the sum of each keys.
+		// 统计 key-> 源头数据除以10的余数，分别对应的个数
 		result.flatMap(new FlatMapFunction<String, Tuple2<String, Integer>>() {
 			private static final long serialVersionUID = -938116068682344455L;
 
