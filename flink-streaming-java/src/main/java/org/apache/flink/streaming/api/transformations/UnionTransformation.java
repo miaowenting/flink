@@ -33,6 +33,8 @@ import java.util.List;
  * <p>This does not create a physical operation, it only affects how upstream operations are
  * connected to downstream operations.
  *
+ * 对应 union 操作，不产生具体的物理操作，仅影响着上下游流是如何关联的。
+ * 
  * @param <T> The type of the elements that result from this {@code UnionTransformation}
  */
 @Internal

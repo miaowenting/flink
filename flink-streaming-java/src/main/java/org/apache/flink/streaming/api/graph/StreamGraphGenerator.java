@@ -210,7 +210,7 @@ public class StreamGraphGenerator {
 
 		alreadyTransformed = new HashMap<>();
 
-		/**
+		/*
 		 * 遍历 transformations 列表，递归调用 transform 方法。
 		 * 对于每一个 Transformation ，确保当前上游已经完成转换，转换成 StreamGraph 中的 StreamNode，并为上下游节点添加 StreamEdge
 		 */
@@ -353,6 +353,7 @@ public class StreamGraphGenerator {
 		// 递归遍历转换上游节点
 		Collection<Integer> transformedIds = transform(input);
 		for (Integer transformedId: transformedIds) {
+			// 虚拟id，就是 Transformation 的自增id
 			int virtualId = Transformation.getNewNodeId();
 			// 添加虚拟的 Partition 节点
 			streamGraph.addVirtualPartitionNode(

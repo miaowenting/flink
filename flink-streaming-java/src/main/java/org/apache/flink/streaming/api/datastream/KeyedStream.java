@@ -992,6 +992,7 @@ public class KeyedStream<T, KEY> extends DataStream<T> {
 	}
 
 	protected SingleOutputStreamOperator<T> aggregate(AggregationFunction<T> aggregate) {
+		// 将 AggregationFunction 包装到 StreamGroupedReduce 这个 operator 中
 		StreamGroupedReduce<T> operator = new StreamGroupedReduce<T>(
 				clean(aggregate), getType().createSerializer(getExecutionConfig()));
 		return transform("Keyed Aggregation", getType(), operator);

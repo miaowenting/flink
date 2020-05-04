@@ -57,6 +57,7 @@ public class WordCount {
 		final MultipleParameterTool params = MultipleParameterTool.fromArgs(args);
 
 		// set up the execution environment
+		// 默认的并行度是 Runtime.getRuntime().availableProcessors()
 		final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
 		// make parameters available in the web interface
@@ -101,7 +102,8 @@ public class WordCount {
 		}
 
 		// execute program
-		env.execute("Streaming WordCount");
+//		env.execute("Streaming WordCount");
+		System.out.println(env.getExecutionPlan());
 	}
 
 	// *************************************************************************

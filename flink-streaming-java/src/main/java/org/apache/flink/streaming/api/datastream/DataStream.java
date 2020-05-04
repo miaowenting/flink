@@ -121,6 +121,9 @@ public class DataStream<T> {
 
 	protected final StreamExecutionEnvironment environment;
 
+	/**
+	 * 保存流上当前最新的 transformation
+	 */
 	protected final Transformation<T> transformation;
 
 	/**
@@ -1290,13 +1293,14 @@ public class DataStream<T> {
 
 		// 构造 Transformation
 		OneInputTransformation<T, R> resultTransform = new OneInputTransformation<>(
+			    // 上游的 Transformation
 				this.transformation,
 				operatorName,
 				operatorFactory,
 				outTypeInfo,
 				environment.getParallelism());
 
-		// 将 Transformation 封装进 SingleOutputStreamOperator 返回
+		// 将 Transformation 封装进 SingleOutputStreamOperator（DataStream）返回
 		@SuppressWarnings({"unchecked", "rawtypes"})
 		SingleOutputStreamOperator<R> returnStream = new SingleOutputStreamOperator(environment, resultTransform);
 

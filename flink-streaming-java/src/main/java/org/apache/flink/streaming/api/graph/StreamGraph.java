@@ -507,6 +507,7 @@ public class StreamGraph implements Pipeline {
 		} else if (virtualPartitionNodes.containsKey(upStreamVertexID)) {
 			// 在要添加边时，发现上游节点是虚拟 partition 节点，从缓存中取出 StreamPartitioner
 			int virtualId = upStreamVertexID;
+			// 得到 partition 上游的 vertexID，如 <2,HASH,UNDEFINED>，得到虚拟节点缓存的实际上游物理节点
 			upStreamVertexID = virtualPartitionNodes.get(virtualId).f0;
 			if (partitioner == null) {
 				partitioner = virtualPartitionNodes.get(virtualId).f1;
@@ -521,6 +522,7 @@ public class StreamGraph implements Pipeline {
 
 			// If no partitioner was specified and the parallelism of upstream and downstream
 			// operator matches use forward partitioning, use rebalance otherwise.
+			// 上下游并行度相同，走的是 forward；不同走的是 rebalance
 			if (partitioner == null && upstreamNode.getParallelism() == downstreamNode.getParallelism()) {
 				partitioner = new ForwardPartitioner<Object>();
 			} else if (partitioner == null) {
@@ -546,6 +548,7 @@ public class StreamGraph implements Pipeline {
 			// 分别将 StreamEdge 添加到上游节点和下游节点
 			// 获取上游节点，添加 OutEdge
 			getStreamNode(edge.getSourceId()).addOutEdge(edge);
+			// 获取下游节点，添加 InEdge
 			getStreamNode(edge.getTargetId()).addInEdge(edge);
 		}
 	}

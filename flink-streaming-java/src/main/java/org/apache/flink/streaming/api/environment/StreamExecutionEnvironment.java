@@ -1605,6 +1605,7 @@ public class StreamExecutionEnvironment {
 			}
 		}
 
+		// 判断下 SourceFunction 是否是 ParallelSourceFunction 实例，如果不是 parallelism 将会被设置为1
 		boolean isParallel = function instanceof ParallelSourceFunction;
 
 		clean(function);
