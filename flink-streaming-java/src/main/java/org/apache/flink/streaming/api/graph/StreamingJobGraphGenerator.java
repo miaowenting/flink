@@ -288,7 +288,7 @@ public class StreamingJobGraphGenerator {
 	 * <p>This will recursively create all {@link JobVertex} instances.
 	 */
 	private void setChaining(Map<Integer, byte[]> hashes, List<Map<Integer, byte[]>> legacyHashes, Map<Integer, List<Tuple2<byte[], byte[]>>> chainedOperatorHashes) {
-		// 遍历 StreamGraph 的 sourceIDs
+		// 从 StreamGraph 的 sourceIDs 开始创建 chain
 		for (Integer sourceNodeId : streamGraph.getSourceIDs()) {
 			createChain(sourceNodeId, sourceNodeId, hashes, legacyHashes, 0, chainedOperatorHashes);
 		}
@@ -317,10 +317,10 @@ public class StreamingJobGraphGenerator {
 
 			List<StreamEdge> chainableOutputs = new ArrayList<StreamEdge>();
 			List<StreamEdge> nonChainableOutputs = new ArrayList<StreamEdge>();
-
+			// 从 StreamGraph 的 streamNodes 集合中取出对应的 StreamNode
 			StreamNode currentNode = streamGraph.getStreamNode(currentNodeId);
 
-			// 将当前节点的出边分为两组，即 chainable 和 nonChainable
+			// 取出当前 StreamNode 的 outEdges ，将当前节点的出边分为两组，即 chainable 和 nonChainable
 			for (StreamEdge outEdge : currentNode.getOutEdges()) {
 				// 判断当前 StreamEdge 的上下游是否可以串联在一起
 				if (isChainable(outEdge, streamGraph)) {
@@ -673,7 +673,7 @@ public class StreamingJobGraphGenerator {
 	 * 只要一条边两端的节点满足下面的条件，那么这两个节点就可以被串联在同一个 JobVertex 中
 	 */
 	public static boolean isChainable(StreamEdge edge, StreamGraph streamGraph) {
-		// 获取到上游和下游节点
+		// 获取到 StreamEdge 的上游和下游节点
 		StreamNode upStreamVertex = streamGraph.getSourceVertex(edge);
 		StreamNode downStreamVertex = streamGraph.getTargetVertex(edge);
 
@@ -681,7 +681,7 @@ public class StreamingJobGraphGenerator {
 		StreamOperatorFactory<?> headOperator = upStreamVertex.getOperatorFactory();
 		StreamOperatorFactory<?> outOperator = downStreamVertex.getOperatorFactory();
 
-		// 要求下游节点只有一个输入
+		// 要求下游节点只有一个入边
 		return downStreamVertex.getInEdges().size() == 1
 				&& outOperator != null
 				&& headOperator != null
