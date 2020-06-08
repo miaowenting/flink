@@ -81,6 +81,9 @@ import static org.apache.flink.cep.nfa.MigrationUtils.deserializeComputationStat
  * @param <T> Type of the processed events
  * @see <a href="https://people.cs.umass.edu/~yanlei/publications/sase-sigmod08.pdf">
  * https://people.cs.umass.edu/~yanlei/publications/sase-sigmod08.pdf</a>
+ *
+ * 非确定有限自动机，由点和边组成的状态图
+ * Flink的流式数据高效处理以及状态管理完美实现了 NFA
  */
 public class NFA<T> {
 

@@ -309,6 +309,9 @@ public class RelDecorrelator implements ReflectiveVisitor {
     };
   }
 
+	/**
+	 * RBO，启发式优化器，按照规则进行匹配，直到达到次数限制
+	 */
   private HepPlanner createPlanner(HepProgram program) {
     // Create a planner with a hook to update the mapping tables when a
     // node is copied when it is registered.

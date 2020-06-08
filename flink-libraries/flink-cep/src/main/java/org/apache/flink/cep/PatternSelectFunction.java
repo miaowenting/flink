@@ -37,6 +37,8 @@ import java.util.Map;
  * DataStream<OUT> result = pattern.select(new MyPatternSelectFunction());
  *}</pre>
  *
+ * 输出一条
+ *
  * @param <IN> Type of the input elements
  * @param <OUT> Type of the output element
  */

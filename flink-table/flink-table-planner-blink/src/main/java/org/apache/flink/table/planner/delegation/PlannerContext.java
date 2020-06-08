@@ -103,6 +103,8 @@ public class PlannerContext {
 		// by user.
 		final FrameworkConfig frameworkConfig = createFrameworkConfig();
 
+		// 基于成本优化 CBO 的实现，它会一直迭代 rules，直到找到 cost 最小的 plan
+		// 初始化 VolcanoPlanner
 		RelOptPlanner planner = new VolcanoPlanner(frameworkConfig.getCostFactory(), frameworkConfig.getContext());
 		planner.setExecutor(frameworkConfig.getExecutor());
 		for (RelTraitDef traitDef : frameworkConfig.getTraitDefs()) {

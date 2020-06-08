@@ -157,12 +157,23 @@ public class Quantifier {
 	 * Describes strategy for which events are matched in this {@link Pattern}. See docs for more info.
 	 */
 	public enum ConsumingStrategy {
+		/**
+		 * 严格连续性，两个 match 的事件必须连续发生
+		 */
 		STRICT,
+		/**
+		 * 宽松连续性，两个 match 的事件之间允许忽略不 match 的事件
+		 */
 		SKIP_TILL_NEXT,
+		/**
+		 * 非确定宽松连续性，两个 match 的事件之间允许忽略不 match 的事件和 match 的事件
+		 */
 		SKIP_TILL_ANY,
 
 		NOT_FOLLOW,
-		NOT_NEXT
+		NOT_NEXT,
+
+		WAITING
 	}
 
 	/**

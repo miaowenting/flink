@@ -50,6 +50,9 @@ import java.util.stream.Collectors;
  * @param <V> Type of the values
  * @see <a href="https://people.cs.umass.edu/~yanlei/publications/sase-sigmod08.pdf">
  * https://people.cs.umass.edu/~yanlei/publications/sase-sigmod08.pdf</a>
+ *
+ * dewey 算法
+ * 多个匹配的模式间有相同的事件，是可以共享的
  */
 public class SharedBuffer<V> {
 

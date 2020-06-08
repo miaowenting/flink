@@ -61,8 +61,7 @@ public class CEPITCase extends AbstractTestBase {
 
 	/**
 	 * Checks that a certain event sequence is recognized.
-	 *
-	 * @throws Exception
+	 * 全局匹配一组先后发生的事件序列
 	 */
 	@Test
 	public void testSimplePatternCEP() throws Exception {
@@ -80,47 +79,70 @@ public class CEPITCase extends AbstractTestBase {
 			new Event(8, "end", 1.0)
 		);
 
+		// Pattern 组
 		Pattern<Event, ?> pattern = Pattern.<Event>begin("start").where(new SimpleCondition<Event>() {
 
 			@Override
 			public boolean filter(Event value) throws Exception {
+				// start Pattern
+				System.out.println("testSimplePatternCEP start -> " + value + ", " + value.getName().equals("start"));
 				return value.getName().equals("start");
 			}
 		})
-		.followedByAny("middle").subtype(SubEvent.class).where(
+			// 1. 前一个模式
+			// 2. 创建一个新的模式
+			// 3. 模式名
+			// 4. where 指定模式内容
+			.followedByAny("middle").subtype(SubEvent.class).where(
 				new SimpleCondition<SubEvent>() {
 
 					@Override
 					public boolean filter(SubEvent value) throws Exception {
+						// middle Pattern
+						// 5. 核心处理逻辑
+						System.out.println("testSimplePatternCEP middle -> " + value + ", " + value.getName().equals(
+							"middle"));
 						return value.getName().equals("middle");
 					}
 				}
 			)
-		.followedByAny("end").where(new SimpleCondition<Event>() {
+			.followedByAny("end").where(new SimpleCondition<Event>() {
 
-			@Override
-			public boolean filter(Event value) throws Exception {
-				return value.getName().equals("end");
-			}
-		});
+				@Override
+				public boolean filter(Event value) throws Exception {
+					// end Pattern
+					System.out.println("testSimplePatternCEP end -> " + value + ", " + value.getName().equals("end"));
+					return value.getName().equals("end");
+				}
+			});
 
-		DataStream<String> result = CEP.pattern(input, pattern).flatSelect((p, o) -> {
+		// CEP 匹配
+		PatternStream<Event> patternStream = CEP.pattern(input, pattern);
+
+		// 经过 CEP 匹配之后的输出流
+		DataStream<String> result = patternStream.flatSelect((p, o) -> {
 			StringBuilder builder = new StringBuilder();
 
+			// Map<String,List<Event>>
 			builder.append(p.get("start").get(0).getId()).append(",")
 				.append(p.get("middle").get(0).getId()).append(",")
 				.append(p.get("end").get(0).getId());
 
 			o.collect(builder.toString());
+			System.out.println("testSimplePatternCEP -> " + builder.toString());
 		}, Types.STRING);
 
 		List<String> resultList = new ArrayList<>();
 
 		DataStreamUtils.collect(result).forEachRemaining(resultList::add);
 
+		// 根据设置的 Pattern，返回 id 列表 2,6,8
 		assertEquals(Arrays.asList("2,6,8"), resultList);
 	}
 
+	/**
+	 * 先按照 id 分组，再去匹配各自的 Pattern
+	 */
 	@Test
 	public void testSimpleKeyedPatternCEP() throws Exception {
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -154,6 +176,8 @@ public class CEPITCase extends AbstractTestBase {
 
 			@Override
 			public boolean filter(Event value) throws Exception {
+				System.out.println("testSimpleKeyedPatternCEP start -> " + value + ", " + value.getName().equals(
+					"start"));
 				return value.getName().equals("start");
 			}
 		})
@@ -162,6 +186,7 @@ public class CEPITCase extends AbstractTestBase {
 
 					@Override
 					public boolean filter(SubEvent value) throws Exception {
+						System.out.println("testSimpleKeyedPatternCEP middle -> " + value + ", " + value.getName().equals("middle"));
 						return value.getName().equals("middle");
 					}
 				}
@@ -170,10 +195,13 @@ public class CEPITCase extends AbstractTestBase {
 
 				@Override
 				public boolean filter(Event value) throws Exception {
+					System.out.println("testSimpleKeyedPatternCEP end -> " + value + ", " + value.getName().equals(
+						"end"));
 					return value.getName().equals("end");
 				}
 			});
 
+		// 处理同一个 input 中的不同 event
 		DataStream<String> result = CEP.pattern(input, pattern).select(p -> {
 			StringBuilder builder = new StringBuilder();
 
@@ -181,6 +209,7 @@ public class CEPITCase extends AbstractTestBase {
 				.append(p.get("middle").get(0).getId()).append(",")
 				.append(p.get("end").get(0).getId());
 
+			System.out.println("testSimpleKeyedPatternCEP -> " + builder.toString());
 			return builder.toString();
 		});
 
@@ -190,15 +219,21 @@ public class CEPITCase extends AbstractTestBase {
 
 		resultList.sort(String::compareTo);
 
+		// 先按照 key 分组形成 KeyedStream，再去匹配各自的 Pattern
 		assertEquals(Arrays.asList("2,2,2", "3,3,3", "42,42,42"), resultList);
 	}
 
+	/**
+	 * 全局匹配一组先后发生的事件序列，基于 EventTime 排序
+	 */
 	@Test
 	public void testSimplePatternEventTime() throws Exception {
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
 
+		// Tuple2 模拟事件以及事件发生的时间
 		// (Event, timestamp)
+		// 事件匹配顺序，2 -> 3 -> 1 -> 5 -> 4 -> 5
 		DataStream<Event> input = env.fromElements(
 			Tuple2.of(new Event(1, "start", 1.0), 5L),
 			Tuple2.of(new Event(2, "middle", 2.0), 1L),
@@ -211,11 +246,15 @@ public class CEPITCase extends AbstractTestBase {
 
 			@Override
 			public long extractTimestamp(Tuple2<Event, Long> element, long previousTimestamp) {
+				// 抽取出时间戳
+				System.out.print("Extract timestamp -> " + element.f1 + ", previousTimestamp -> " + previousTimestamp + ", ");
 				return element.f1;
 			}
 
 			@Override
 			public Watermark checkAndGetNextWatermark(Tuple2<Event, Long> lastElement, long extractedTimestamp) {
+				// 发射出新的 watermark
+				System.out.println("Emit watermark -> " + (lastElement.f1 - 5));
 				return new Watermark(lastElement.f1 - 5);
 			}
 
@@ -231,18 +270,22 @@ public class CEPITCase extends AbstractTestBase {
 
 			@Override
 			public boolean filter(Event value) throws Exception {
+				System.out.println("testSimplePatternEventTime start -> " + value + ", " + value.getName().equals(
+					"start"));
 				return value.getName().equals("start");
 			}
 		}).followedByAny("middle").where(new SimpleCondition<Event>() {
 
 			@Override
 			public boolean filter(Event value) throws Exception {
+				System.out.println("testSimplePatternEventTime middle -> " + value + ", " + value.getName().equals("middle"));
 				return value.getName().equals("middle");
 			}
 		}).followedByAny("end").where(new SimpleCondition<Event>() {
 
 			@Override
 			public boolean filter(Event value) throws Exception {
+				System.out.println("testSimplePatternEventTime end -> " + value + ", " + value.getName().equals("end"));
 				return value.getName().equals("end");
 			}
 		});
@@ -258,6 +301,7 @@ public class CEPITCase extends AbstractTestBase {
 						.append(pattern.get("middle").get(0).getId()).append(",")
 						.append(pattern.get("end").get(0).getId());
 
+					System.out.println("testSimplePatternEventTime -> " + builder.toString());
 					return builder.toString();
 				}
 			}
@@ -272,6 +316,10 @@ public class CEPITCase extends AbstractTestBase {
 		assertEquals(Arrays.asList("1,5,4"), resultList);
 	}
 
+
+	/**
+	 * 先按照 id 分组，再去匹配各自的 Pattern，基于 EventTime
+	 */
 	@Test
 	public void testSimpleKeyedPatternEventTime() throws Exception {
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -321,18 +369,23 @@ public class CEPITCase extends AbstractTestBase {
 
 			@Override
 			public boolean filter(Event value) throws Exception {
+				System.out.println("testSimpleKeyedPatternEventTime start -> " + value + ", " + value.getName().equals(
+					"start"));
 				return value.getName().equals("start");
 			}
 		}).followedByAny("middle").where(new SimpleCondition<Event>() {
 
 			@Override
 			public boolean filter(Event value) throws Exception {
+				System.out.println("testSimpleKeyedPatternEventTime middle -> " + value + ", " + value.getName().equals(
+					"middle"));
 				return value.getName().equals("middle");
 			}
 		}).followedByAny("end").where(new SimpleCondition<Event>() {
 
 			@Override
 			public boolean filter(Event value) throws Exception {
+				System.out.println("testSimpleKeyedPatternEventTime end -> " + value + ", " + value.getName().equals("end"));
 				return value.getName().equals("end");
 			}
 		});
@@ -348,6 +401,7 @@ public class CEPITCase extends AbstractTestBase {
 						.append(pattern.get("middle").get(0).getId()).append(",")
 						.append(pattern.get("end").get(0).getId());
 
+					System.out.println("testSimpleKeyedPatternEventTime -> " + builder.toString());
 					return builder.toString();
 				}
 			}
@@ -362,6 +416,10 @@ public class CEPITCase extends AbstractTestBase {
 		assertEquals(Arrays.asList("1,1,1", "2,2,2"), resultList);
 	}
 
+
+	/**
+	 * 根据事件过滤规则匹配出一个事件作为开始事件，"start" 作为该事件的一个 state
+	 */
 	@Test
 	public void testSimplePatternWithSingleState() throws Exception {
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -394,19 +452,31 @@ public class CEPITCase extends AbstractTestBase {
 		assertEquals(Arrays.asList(new Tuple2<>(0, 1)), resultList);
 	}
 
+	/**
+	 * 使用 ProcessingTime
+	 * 获取时间窗口中的开始事件和结束事件，1、2、3 3个元素依次累加
+	 */
 	@Test
 	public void testProcessingTimeWithWindow() throws Exception {
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 		env.setParallelism(1);
 
-		DataStream<Integer> input = env.fromElements(1, 2);
+		DataStream<Integer> input = env.fromElements(1, 2, 3);
 
-		Pattern<Integer, ?> pattern = Pattern.<Integer>begin("start").followedByAny("end").within(Time.days(1));
+		Pattern<Integer, ?> pattern = Pattern.<Integer>begin("start")
+			.followedByAny("end")
+			// 1天的窗口
+			.within(Time.days(1));
 
 		DataStream<Integer> result = CEP.pattern(input, pattern).select(new PatternSelectFunction<Integer, Integer>() {
 			@Override
 			public Integer select(Map<String, List<Integer>> pattern) throws Exception {
-				return pattern.get("start").get(0) + pattern.get("end").get(0);
+				// 返回开始元素和结束元素的累加和
+				int start = pattern.get("start").get(0);
+				int end = pattern.get("end").get(0);
+				int sum = start + end;
+				System.out.println("testProcessingTimeWithWindow start -> " + start + ", end -> " + end + ", sum -> " + sum);
+				return sum;
 			}
 		});
 
@@ -414,9 +484,14 @@ public class CEPITCase extends AbstractTestBase {
 
 		DataStreamUtils.collect(result).forEachRemaining(resultList::add);
 
-		assertEquals(Arrays.asList(3), resultList);
+		assertEquals(Arrays.asList(3, 4, 5), resultList);
 	}
 
+	/**
+	 * 使用 EventTime
+	 * 处理规则匹配超时的事件，旁路输出
+	 * 由于 timeout 而未完成的部分匹配的序列
+	 */
 	@Test
 	public void testTimeoutHandling() throws Exception {
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -427,8 +502,8 @@ public class CEPITCase extends AbstractTestBase {
 		DataStream<Event> input = env.fromElements(
 			Tuple2.of(new Event(1, "start", 1.0), 1L),
 			Tuple2.of(new Event(1, "middle", 2.0), 5L),
-			Tuple2.of(new Event(1, "start", 2.0), 4L),
-			Tuple2.of(new Event(1, "end", 2.0), 6L)
+			Tuple2.of(new Event(1, "start", 3.0), 4L),
+			Tuple2.of(new Event(1, "end", 4.0), 6L)
 		).assignTimestampsAndWatermarks(new AssignerWithPunctuatedWatermarks<Tuple2<Event, Long>>() {
 
 			@Override
@@ -471,13 +546,20 @@ public class CEPITCase extends AbstractTestBase {
 
 		DataStream<Either<String, String>> result = CEP.pattern(input, pattern).select(
 			new PatternTimeoutFunction<Event, String>() {
+				// 超时事件旁路输出
 				@Override
 				public String timeout(Map<String, List<Event>> pattern, long timeoutTimestamp) throws Exception {
+					System.out.println("testTimeoutHandling start timeout -> " + pattern.get("start").get(0) + ", " + timeoutTimestamp);
+					if (pattern.get("middle") != null) {
+						System.out.println("testTimeoutHandling middle timeout -> " + pattern.get("middle").get(0) +
+							", " + timeoutTimestamp);
+					}
 					return pattern.get("start").get(0).getPrice() + "";
 				}
 			},
 			new PatternSelectFunction<Event, String>() {
 
+				// 主流程正常匹配事件输出
 				@Override
 				public String select(Map<String, List<Event>> pattern) {
 					StringBuilder builder = new StringBuilder();
@@ -486,6 +568,7 @@ public class CEPITCase extends AbstractTestBase {
 						.append(pattern.get("middle").get(0).getPrice()).append(",")
 						.append(pattern.get("end").get(0).getPrice());
 
+					System.out.println("testTimeoutHandling -> " + builder.toString());
 					return builder.toString();
 				}
 			}
@@ -499,9 +582,9 @@ public class CEPITCase extends AbstractTestBase {
 
 		List<Either<String, String>> expected = Arrays.asList(
 			Either.Left.of("1.0"),
-			Either.Left.of("2.0"),
-			Either.Left.of("2.0"),
-			Either.Right.of("2.0,2.0,2.0")
+			Either.Left.of("3.0"),
+			Either.Left.of("3.0"),
+			Either.Right.of("3.0,2.0,4.0")
 		);
 
 		assertEquals(expected, resultList);
@@ -509,8 +592,7 @@ public class CEPITCase extends AbstractTestBase {
 
 	/**
 	 * Checks that a certain event sequence is recognized with an OR filter.
-	 *
-	 * @throws Exception
+	 * Pattern 中事件的过滤条件是可以用 or 的
 	 */
 	@Test
 	public void testSimpleOrFilterPatternCEP() throws Exception {
@@ -563,6 +645,7 @@ public class CEPITCase extends AbstractTestBase {
 					.append(pattern.get("middle").get(0).getId()).append(",")
 					.append(pattern.get("end").get(0).getId());
 
+				System.out.println("testSimpleOrFilterPatternCEP -> " + builder.toString());
 				return builder.toString();
 			}
 		});
@@ -587,8 +670,7 @@ public class CEPITCase extends AbstractTestBase {
 
 	/**
 	 * Checks that a certain event sequence is recognized.
-	 *
-	 * @throws Exception
+	 * 先把事件按 EventTime 排序，再按自定义的 EventComparator 排序
 	 */
 	@Test
 	public void testSimplePatternEventTimeWithComparator() throws Exception {
@@ -596,6 +678,7 @@ public class CEPITCase extends AbstractTestBase {
 		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
 
 		// (Event, timestamp)
+		// 事件匹配顺序，2 -> 3 -> 1 -> 6 -> 5 -> 4 -> 7
 		DataStream<Event> input = env.fromElements(
 			Tuple2.of(new Event(1, "start", 1.0), 5L),
 			Tuple2.of(new Event(2, "middle", 2.0), 1L),
@@ -631,22 +714,27 @@ public class CEPITCase extends AbstractTestBase {
 
 			@Override
 			public boolean filter(Event value) throws Exception {
+				System.out.println("testSimplePatternEventTimeWithComparator start -> " + value);
 				return value.getName().equals("start");
 			}
 		}).followedByAny("middle").where(new SimpleCondition<Event>() {
 
 			@Override
 			public boolean filter(Event value) throws Exception {
+				System.out.println("testSimplePatternEventTimeWithComparator middle -> " + value);
 				return value.getName().equals("middle");
 			}
 		}).followedByAny("end").where(new SimpleCondition<Event>() {
 
 			@Override
 			public boolean filter(Event value) throws Exception {
+				System.out.println("testSimplePatternEventTimeWithComparator end -> " + value);
 				return value.getName().equals("end");
 			}
 		});
 
+		// 这里使用了一个 CustomEventComparator ，事件比较器
+		// 先按照事件发生的 EventTime 排序，再按价格排序来依次处理
 		DataStream<String> result = CEP.pattern(input, pattern, comparator).select(
 			new PatternSelectFunction<Event, String>() {
 
@@ -658,6 +746,7 @@ public class CEPITCase extends AbstractTestBase {
 						.append(pattern.get("middle").get(0).getId()).append(",")
 						.append(pattern.get("end").get(0).getId());
 
+					System.out.println("testSimplePatternEventTimeWithComparator -> " + builder.toString());
 					return builder.toString();
 				}
 			}
@@ -679,6 +768,9 @@ public class CEPITCase extends AbstractTestBase {
 		assertEquals(expected, resultList);
 	}
 
+	/**
+	 * Event 比较器，按事件中的 Price 值大小从低到高排序
+	 */
 	private static class CustomEventComparator implements EventComparator<Event> {
 		@Override
 		public int compare(Event o1, Event o2) {
@@ -686,6 +778,9 @@ public class CEPITCase extends AbstractTestBase {
 		}
 	}
 
+	/**
+	 * Pattern 中设置匹配次数，依次匹配两次 "a" ，重新开始一次新的匹配
+	 */
 	@Test
 	public void testSimpleAfterMatchSkip() throws Exception {
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -724,6 +819,9 @@ public class CEPITCase extends AbstractTestBase {
 		assertEquals(expected, resultList);
 	}
 
+	/**
+	 * 测试 RichPatternFlatSelectFunction
+	 */
 	@Test
 	public void testRichPatternFlatSelectFunction() throws Exception {
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -788,6 +886,9 @@ public class CEPITCase extends AbstractTestBase {
 						.append(p.get("middle").get(0).getId()).append(",")
 						.append(p.get("end").get(0).getId());
 
+					System.out.println("testRichPatternFlatSelectFunction -> " + builder.toString());
+
+					// 将匹配到的事件流发射出去
 					o.collect(builder.toString());
 				}
 			}, Types.STRING);
@@ -799,6 +900,9 @@ public class CEPITCase extends AbstractTestBase {
 		assertEquals(Arrays.asList("2,6,8"), resultList);
 	}
 
+	/**
+	 * 测试 RichPatternSelectFunction
+	 */
 	@Test
 	public void testRichPatternSelectFunction() throws Exception {
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -844,11 +948,11 @@ public class CEPITCase extends AbstractTestBase {
 			}
 		).followedByAny("end").where(new SimpleCondition<Event>() {
 
-				@Override
-				public boolean filter(Event value) throws Exception {
-					return value.getName().equals("end");
-				}
-			});
+			@Override
+			public boolean filter(Event value) throws Exception {
+				return value.getName().equals("end");
+			}
+		});
 
 		DataStream<String> result = CEP.pattern(input, pattern).select(new RichPatternSelectFunction<Event, String>() {
 			@Override
@@ -891,7 +995,8 @@ public class CEPITCase extends AbstractTestBase {
 	public void testFlatSelectSerializationWithAnonymousClass() throws Exception {
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 		DataStreamSource<Integer> elements = env.fromElements(1, 2, 3);
-		OutputTag<Integer> outputTag = new OutputTag<Integer>("AAA") {};
+		OutputTag<Integer> outputTag = new OutputTag<Integer>("AAA") {
+		};
 		CEP.pattern(elements, Pattern.begin("A")).flatSelect(
 			outputTag,
 			new PatternFlatTimeoutFunction<Integer, Integer>() {

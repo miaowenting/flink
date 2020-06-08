@@ -61,7 +61,9 @@ public class Pattern<T, F extends T> {
 	/** Window length in which the pattern match has to occur. */
 	private Time windowTime;
 
-	/** A quantifier for the pattern. By default set to {@link Quantifier#one(ConsumingStrategy)}. */
+	/** A quantifier for the pattern. By default set to {@link Quantifier#one(ConsumingStrategy)}.
+	 * 模式的属性，包括模式发生的循环次数、模式是贪婪的还是可选的
+	 */
 	private Quantifier quantifier = Quantifier.one(ConsumingStrategy.STRICT);
 
 	/** The condition an event has to satisfy to stop collecting events into looping state. */
@@ -238,6 +240,7 @@ public class Pattern<T, F extends T> {
 	 * Defines the maximum time interval in which a matching pattern has to be completed in
 	 * order to be considered valid. This interval corresponds to the maximum time gap between first
 	 * and the last event.
+	 * 模式的匹配事件是放在状态中的，所以要指定有效期
 	 *
 	 * @param windowTime Time of the matching window
 	 * @return The same pattern operator with the new window length
@@ -255,6 +258,12 @@ public class Pattern<T, F extends T> {
 	 * temporal contiguity. This means that the whole pattern sequence matches only
 	 * if an event which matches this pattern directly follows the preceding matching
 	 * event. Thus, there cannot be any events in between two matching events.
+	 *
+	 * 严格连续性：两个 match 的事件必须连续发生
+	 * Pattern(a b)
+	 * Streaming("a","c","b1","b2")
+	 *
+	 * {}
 	 *
 	 * @param name Name of the new pattern
 	 * @return A new pattern which is appended to this one
@@ -284,6 +293,12 @@ public class Pattern<T, F extends T> {
 	 * Appends a new pattern to the existing one. The new pattern enforces non-strict
 	 * temporal contiguity. This means that a matching event of this pattern and the
 	 * preceding matching event might be interleaved with other events which are ignored.
+	 *
+	 * 宽松连续性：两个 match 的事件之间允许出现不 match 的事件
+	 * Pattern(a b)
+	 * Streaming("a","c","b1","b2")
+	 *
+	 * {a,b1}
 	 *
 	 * @param name Name of the new pattern
 	 * @return A new pattern which is appended to this one
@@ -316,6 +331,12 @@ public class Pattern<T, F extends T> {
 	 * temporal contiguity. This means that a matching event of this pattern and the
 	 * preceding matching event might be interleaved with other events which are ignored.
 	 *
+	 * 非确定宽松连续性：两个 match 的事件之间允许出现不 match 的事件和 match 的事件
+	 * Pattern(a b)
+	 * Streaming("a","c","b1","b2")
+	 *
+	 * {a,b1} {a,b2}
+	 *
 	 * @param name Name of the new pattern
 	 * @return A new pattern which is appended to this one
 	 */
@@ -326,6 +347,7 @@ public class Pattern<T, F extends T> {
 	/**
 	 * Specifies that this pattern is optional for a final match of the pattern
 	 * sequence to happen.
+	 * 可选状态，模式有则匹配，无则忽略
 	 *
 	 * @return The same pattern as optional.
 	 * @throws MalformedPatternException if the quantifier is not applicable to this pattern.
@@ -340,6 +362,7 @@ public class Pattern<T, F extends T> {
 	 * Specifies that this pattern can occur {@code one or more} times.
 	 * This means at least one and at most infinite number of events can
 	 * be matched to this pattern.
+	 * 一次或多次
 	 *
 	 * <p>If this quantifier is enabled for a
 	 * pattern {@code A.oneOrMore().followedBy(B)} and a sequence of events
@@ -360,6 +383,7 @@ public class Pattern<T, F extends T> {
 	/**
 	 * Specifies that this pattern is greedy.
 	 * This means as many events as possible will be matched to this pattern.
+	 * 贪婪模式，匹配最长的串
 	 *
 	 * @return The same pattern with {@link Quantifier#greedy} set to true.
 	 * @throws MalformedPatternException if the quantifier is not applicable to this pattern.
@@ -373,6 +397,7 @@ public class Pattern<T, F extends T> {
 
 	/**
 	 * Specifies exact number of times that this pattern should be matched.
+	 * 发生了多少次
 	 *
 	 * @param times number of times matching event must appear
 	 * @return The same pattern with number of times applied
@@ -413,6 +438,7 @@ public class Pattern<T, F extends T> {
 	 * Specifies that this pattern can occur the specified times at least.
 	 * This means at least the specified times and at most infinite number of events can
 	 * be matched to this pattern.
+	 * 发生了多少次及以上
 	 *
 	 * @return The same pattern with a {@link Quantifier#looping(ConsumingStrategy)} quantifier applied.
 	 * @throws MalformedPatternException if the quantifier is not applicable to this pattern.

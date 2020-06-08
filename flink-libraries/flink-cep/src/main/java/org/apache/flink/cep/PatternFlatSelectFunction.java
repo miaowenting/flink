@@ -37,6 +37,9 @@ import java.util.Map;
  *
  * DataStream<OUT> result = pattern.flatSelect(new MyPatternFlatSelectFunction());
  * }</pre>
+ *
+ * 输出多条
+ *
  * @param <IN>
  * @param <OUT>
  */

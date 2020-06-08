@@ -22,7 +22,19 @@ package org.apache.flink.cep.nfa;
  * Set of actions when doing a state transition from a {@link State} to another.
  */
 public enum StateTransitionAction {
-	TAKE, // take the current event and assign it to the current state
-	IGNORE, // ignore the current event
-	PROCEED // do the state transition and keep the current event for further processing (epsilon transition)
+	/**
+	 * take the current event and assign it to the current state
+	 * 以一种条件作为判断，当进来的一条事件满足 take 边的条件时，就把相应的事件放入结果集，并且将相应的状态向下转移。
+	 */
+	TAKE,
+	/**
+	 * ignore the current event
+	 * 允许忽略不匹配的事件
+	 */
+	IGNORE,
+	/**
+	 * do the state transition and keep the current event for further processing (epsilon transition)
+	 * 状态的空转移，当前的状态可以不依赖于任何事件而转移到下一个状态。透传
+	 */
+	PROCEED
 }

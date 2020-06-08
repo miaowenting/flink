@@ -26,6 +26,7 @@ import org.apache.flink.api.java.typeutils.TypeExtractor;
 import java.util.Objects;
 
 /**
+ * 示例事件，用于测试 CEP
  * Exemplary event for usage in tests of CEP. See also {@link SubEvent}
  */
 public class Event {

@@ -294,6 +294,16 @@ public class NFACompiler {
 					}
 					notNext.addProceed(stopState, notCondition);
 					lastSink = notNext;
+				} else if(currentPattern.getQuantifier().getConsumingStrategy() == Quantifier.ConsumingStrategy.WAITING){
+					final State<T> waitingState = null;
+					final IterativeCondition<T> waitingCondition = getTakeCondition(currentPattern);
+
+					waitingState.addIgnore(lastSink,waitingCondition);
+					waitingState.addIgnore(waitingCondition);
+					lastSink = waitingState;
+
+					addStopStates(lastSink);
+
 				} else {
 					lastSink = convertPattern(lastSink);
 				}
@@ -360,6 +370,7 @@ public class NFACompiler {
 			return state;
 		}
 
+
 		private State<T> createStopState(final IterativeCondition<T> notCondition, final String name) {
 			// We should not duplicate the notStates. All states from which we can stop should point to the same one.
 			State<T> stopState = stopStates.get(name);
@@ -370,6 +381,7 @@ public class NFACompiler {
 			}
 			return stopState;
 		}
+
 
 		/**
 		 * This method creates an alternative state that is target for TAKE transition from an optional State.

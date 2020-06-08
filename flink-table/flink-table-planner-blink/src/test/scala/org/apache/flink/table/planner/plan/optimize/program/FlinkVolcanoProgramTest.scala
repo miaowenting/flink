@@ -41,6 +41,7 @@ class FlinkVolcanoProgramTest {
       ))
       .setRequiredOutputTraits(Array(TEST))
       .build()
+    print(TEST)
   }
 
   @Test(expected = classOf[NullPointerException])

@@ -38,6 +38,9 @@ import java.util.Map;
  *
  * DataStream<OUT> result = pattern.flatSelect(..., new MyPatternFlatTimeoutFunction());
  * }</pre>
+ *
+ * 支持超时事件的旁路输出
+ *
  * @param <IN>
  * @param <OUT>
  */

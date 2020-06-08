@@ -139,9 +139,21 @@ public class State<T> implements Serializable {
 	 * Set of valid state types.
 	 */
 	public enum StateType {
-		Start, // the state is a starting state for the NFA
-		Final, // the state is a final state for the NFA
-		Normal, // the state is neither a start nor a final state
+		/**
+		 * the state is a starting state for the NFA
+		 * 始态
+		 */
+		Start,
+		/**
+		 * the state is a final state for the NFA
+		 * 终态
+		 */
+		Final,
+		/**
+		 * the state is neither a start nor a final state
+		 * 中间态
+		 */
+		Normal,
 		Stop
 	}
 }
