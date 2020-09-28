@@ -1014,6 +1014,7 @@ public class CEPITCase extends AbstractTestBase {
 
 				}
 			}
+
 		);
 
 		env.execute();
