@@ -114,6 +114,7 @@ import static org.apache.flink.table.types.logical.utils.LogicalTypeChecks.getSc
 public interface RowData {
 
 	/**
+	 * RowData 的字段个数
 	 * Returns the number of fields in this row.
 	 *
 	 * <p>The number does not include {@link RowKind}. It is kept separately.
@@ -139,6 +140,7 @@ public interface RowData {
 	// ------------------------------------------------------------------------------------------
 
 	/**
+	 * 描述下标位置字段是否为 null
 	 * Returns true if the field is null at the given position.
 	 */
 	boolean isNullAt(int pos);

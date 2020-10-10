@@ -52,13 +52,15 @@ import java.util.TreeMap;
 import static org.apache.flink.util.Preconditions.checkArgument;
 
 /**
+ * 可更新的 TopN function
+ *
  * A TopN function could handle updating stream. It is a fast version of {@link RetractableTopNFunction}
- * which only hold top n data in state, and keep sorted map in heap.
+ * which only hold top n data in state, and keep sorted map in heap. 简版，sortedMap 只保存在堆内存中
  * However, the function only works in some special scenarios:
  * 1. sort field collation is ascending and its mono is decreasing, or sort field collation is descending and its mono
  * is increasing
  * 2. input data has unique keys and unique key must contain partition key
- * 3. input stream could not contain DELETE record or UPDATE_BEFORE record
+ * 3. input stream could not contain DELETE record or UPDATE_BEFORE record 输入流不能包含 DELETE 或 UPDATE_BEFORE 类型
  */
 public class UpdatableTopNFunction extends AbstractTopNFunction implements CheckpointedFunction {
 
@@ -81,6 +83,9 @@ public class UpdatableTopNFunction extends AbstractTopNFunction implements Check
 	private transient Map<RowData, TopNBuffer> kvSortedMap;
 
 	// a HashMap stores mapping from rowKey to record, a heap mirror to dataState
+	/**
+	 * dataState 的内存镜像
+	 */
 	private transient Map<RowData, RankRow> rowKeyMap;
 
 	// the kvRowKeyMap store mapping from partitionKey to its rowKeyMap.
@@ -90,19 +95,19 @@ public class UpdatableTopNFunction extends AbstractTopNFunction implements Check
 	private final KeySelector<RowData, RowData> rowKeySelector;
 
 	public UpdatableTopNFunction(
-			long minRetentionTime,
-			long maxRetentionTime,
-			RowDataTypeInfo inputRowType,
-			RowDataKeySelector rowKeySelector,
-			GeneratedRecordComparator generatedRecordComparator,
-			RowDataKeySelector sortKeySelector,
-			RankType rankType,
-			RankRange rankRange,
-			boolean generateUpdateBefore,
-			boolean outputRankNumber,
-			long cacheSize) {
+		long minRetentionTime,
+		long maxRetentionTime,
+		RowDataTypeInfo inputRowType,
+		RowDataKeySelector rowKeySelector,
+		GeneratedRecordComparator generatedRecordComparator,
+		RowDataKeySelector sortKeySelector,
+		RankType rankType,
+		RankRange rankRange,
+		boolean generateUpdateBefore,
+		boolean outputRankNumber,
+		long cacheSize) {
 		super(minRetentionTime, maxRetentionTime, inputRowType, generatedRecordComparator, sortKeySelector, rankType,
-				rankRange, generateUpdateBefore, outputRankNumber);
+			rankRange, generateUpdateBefore, outputRankNumber);
 		this.rowKeyType = rowKeySelector.getProducedType();
 		this.cacheSize = cacheSize;
 		this.inputRowSer = inputRowType.createSerializer(new ExecutionConfig());
@@ -121,7 +126,7 @@ public class UpdatableTopNFunction extends AbstractTopNFunction implements Check
 
 		TupleTypeInfo<Tuple2<RowData, Integer>> valueTypeInfo = new TupleTypeInfo<>(inputRowType, Types.INT);
 		MapStateDescriptor<RowData, Tuple2<RowData, Integer>> mapStateDescriptor = new MapStateDescriptor<>(
-				"data-state-with-update", rowKeyType, valueTypeInfo);
+			"data-state-with-update", rowKeyType, valueTypeInfo);
 		dataState = getRuntimeContext().getMapState(mapStateDescriptor);
 
 		// metrics
@@ -130,9 +135,9 @@ public class UpdatableTopNFunction extends AbstractTopNFunction implements Check
 
 	@Override
 	public void onTimer(
-			long timestamp,
-			OnTimerContext ctx,
-			Collector<RowData> out) throws Exception {
+		long timestamp,
+		OnTimerContext ctx,
+		Collector<RowData> out) throws Exception {
 		if (stateCleaningEnabled) {
 			RowData partitionKey = (RowData) keyContext.getCurrentKey();
 			// cleanup cache
@@ -149,7 +154,7 @@ public class UpdatableTopNFunction extends AbstractTopNFunction implements Check
 
 	@Override
 	public void processElement(
-			RowData input, Context context, Collector<RowData> out) throws Exception {
+		RowData input, Context context, Collector<RowData> out) throws Exception {
 		long currentTime = context.timerService().currentProcessingTime();
 		// register state-cleanup timer
 		registerProcessingCleanupTimer(context, currentTime);
@@ -225,9 +230,9 @@ public class UpdatableTopNFunction extends AbstractTopNFunction implements Check
 						int size = buffer.put(sortKey, recordRowKey);
 						if (innerRank != size) {
 							LOG.warn("Failed to build sorted map from state, this may result in wrong result. " +
-											"The sort key is {}, partition key is {}, " +
-											"treeMap is {}. The expected inner rank is {}, but current size is {}.",
-									sortKey, partitionKey, treeMap, innerRank, size);
+									"The sort key is {}, partition key is {}, " +
+									"treeMap is {}. The expected inner rank is {}, but current size is {}.",
+								sortKey, partitionKey, treeMap, innerRank, size);
 						}
 					}
 				}
@@ -243,6 +248,7 @@ public class UpdatableTopNFunction extends AbstractTopNFunction implements Check
 		if (rowKeyMap.containsKey(rowKey)) {
 			// it is an updated record which is in the topN, in this scenario,
 			// the new sort key must be higher than old sort key, this is guaranteed by rules
+			// 取出老的 RankRow
 			RankRow oldRow = rowKeyMap.get(rowKey);
 			RowData oldSortKey = sortKeySelector.getKey(oldRow.row);
 			if (oldSortKey.equals(sortKey)) {
@@ -301,7 +307,7 @@ public class UpdatableTopNFunction extends AbstractTopNFunction implements Check
 			}
 		}
 		LOG.error("Failed to find the sortKey: {}, rowkey: {} in the buffer. This should never happen", sortKey,
-				rowKey);
+			rowKey);
 		throw new RuntimeException("Failed to find the sortKey, rowkey in the buffer. This should never happen");
 	}
 
@@ -310,7 +316,7 @@ public class UpdatableTopNFunction extends AbstractTopNFunction implements Check
 	}
 
 	private void emitRecordsWithRowNumber(RowData sortKey, RowData inputRow, Collector<RowData> out, RowData oldSortKey,
-			RankRow oldRow, int oldRank) throws Exception {
+										  RankRow oldRow, int oldRank) throws Exception {
 
 		Iterator<Map.Entry<RowData, Collection<RowData>>> iterator = buffer.entrySet().iterator();
 		int currentRank = 0;

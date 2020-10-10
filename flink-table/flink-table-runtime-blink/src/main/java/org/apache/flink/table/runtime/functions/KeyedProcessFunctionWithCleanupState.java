@@ -43,6 +43,7 @@ public abstract class KeyedProcessFunctionWithCleanupState<K, IN, OUT>
 	protected final boolean stateCleaningEnabled;
 
 	// holds the latest registered cleanup timer
+	// 记录最新注册的 state cleanup timer
 	private ValueState<Long> cleanupTimeState;
 
 	public KeyedProcessFunctionWithCleanupState(long minRetentionTime, long maxRetentionTime) {

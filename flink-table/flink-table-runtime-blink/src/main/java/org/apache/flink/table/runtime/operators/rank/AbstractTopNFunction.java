@@ -62,23 +62,62 @@ public abstract class AbstractTopNFunction extends KeyedProcessFunctionWithClean
 	private static final long DEFAULT_TOPN_SIZE = 100;
 
 	// The util to compare two sortKey equals to each other.
+	/**
+	 * 生成 sortKey 比较器实例类的工具类
+	 */
 	private GeneratedRecordComparator generatedSortKeyComparator;
+	/**
+	 * sortKey 比较器
+	 */
 	protected Comparator<RowData> sortKeyComparator;
 
 	private final boolean generateUpdateBefore;
+	/**
+	 * 是否输出排序序号
+	 */
 	protected final boolean outputRankNumber;
+	/**
+	 * 输入的数据类型
+	 */
 	protected final RowDataTypeInfo inputRowType;
+	/**
+	 * key selector，选择 RowData 中的哪一个字段来排序
+	 */
 	protected final KeySelector<RowData, RowData> sortKeySelector;
 
+	/**
+	 * key 上下文，获取当前处理数据的 key
+	 */
 	protected KeyContext keyContext;
+	/**
+	 * 是否是固定的 TopN 集合大小
+	 */
 	private final boolean isConstantRankEnd;
+	/**
+	 * rankStart 值
+	 */
 	private final long rankStart;
+	/**
+	 * rankEnd 在 RowData 中的下标
+	 */
 	private final int rankEndIndex;
+	/**
+	 * rankEnd 值
+	 */
 	protected long rankEnd;
+	/**
+	 * java.util.Function，从 RowData 的某一个位置获取 rankEnd
+	 */
 	private transient Function<RowData, Long> rankEndFetcher;
 
+	/**
+	 * 记录 rankEnd，可能随着输入数据动态变化
+	 */
 	private ValueState<Long> rankEndState;
 	private Counter invalidCounter;
+	/**
+	 * 当 TopN 需要输出排位序号时，会用到这个对象
+	 */
 	private JoinedRowData outputRow;
 
 	// metrics
@@ -86,17 +125,18 @@ public abstract class AbstractTopNFunction extends KeyedProcessFunctionWithClean
 	protected long requestCount = 0L;
 
 	AbstractTopNFunction(
-			long minRetentionTime,
-			long maxRetentionTime,
-			RowDataTypeInfo inputRowType,
-			GeneratedRecordComparator generatedSortKeyComparator,
-			RowDataKeySelector sortKeySelector,
-			RankType rankType,
-			RankRange rankRange,
-			boolean generateUpdateBefore,
-			boolean outputRankNumber) {
+		long minRetentionTime,
+		long maxRetentionTime,
+		RowDataTypeInfo inputRowType,
+		GeneratedRecordComparator generatedSortKeyComparator,
+		RowDataKeySelector sortKeySelector,
+		RankType rankType,
+		RankRange rankRange,
+		boolean generateUpdateBefore,
+		boolean outputRankNumber) {
 		super(minRetentionTime, maxRetentionTime);
 		// TODO support RANK and DENSE_RANK
+		// 目前仅支持 ROW_NUMBER
 		switch (rankType) {
 			case ROW_NUMBER:
 				break;
@@ -142,11 +182,14 @@ public abstract class AbstractTopNFunction extends KeyedProcessFunctionWithClean
 		outputRow = new JoinedRowData();
 
 		if (!isConstantRankEnd) {
+			// 从状态后端读取当前 rankEnd 值
 			ValueStateDescriptor<Long> rankStateDesc = new ValueStateDescriptor<>("rankEnd", Types.LONG);
 			rankEndState = getRuntimeContext().getState(rankStateDesc);
 		}
 		// compile comparator
+		// classLoader 加载 key comparator 类
 		sortKeyComparator = generatedSortKeyComparator.newInstance(getRuntimeContext().getUserCodeClassLoader());
+		// 把确定不需要的对象直接赋值为 null
 		generatedSortKeyComparator = null;
 		invalidCounter = getRuntimeContext().getMetricGroup().counter("topn.invalidTopSize");
 
@@ -165,10 +208,10 @@ public abstract class AbstractTopNFunction extends KeyedProcessFunctionWithClean
 					break;
 				default:
 					LOG.error("variable rank index column must be long, short or int type, while input type is {}",
-							rankEndIdxType.getClass().getName());
+						rankEndIdxType.getClass().getName());
 					throw new UnsupportedOperationException(
-							"variable rank index column must be long type, while input type is " +
-									rankEndIdxType.getClass().getName());
+						"variable rank index column must be long type, while input type is " +
+							rankEndIdxType.getClass().getName());
 			}
 		}
 	}
@@ -197,6 +240,7 @@ public abstract class AbstractTopNFunction extends KeyedProcessFunctionWithClean
 			long curRankEnd = rankEndFetcher.apply(row);
 			if (rankEndValue == null) {
 				rankEnd = curRankEnd;
+				// 同步更新到状态后端
 				rankEndState.update(rankEnd);
 				return rankEnd;
 			} else {
@@ -214,21 +258,24 @@ public abstract class AbstractTopNFunction extends KeyedProcessFunctionWithClean
 	 * Checks whether the record should be put into the buffer.
 	 *
 	 * @param sortKey sortKey to test
-	 * @param buffer buffer to add
+	 * @param buffer  buffer to add
 	 * @return true if the record should be put into the buffer.
 	 */
 	protected boolean checkSortKeyInBufferRange(RowData sortKey, TopNBuffer buffer) {
 		Comparator<RowData> comparator = buffer.getSortKeyComparator();
 		Map.Entry<RowData, Collection<RowData>> worstEntry = buffer.lastEntry();
 		if (worstEntry == null) {
-			// return true if the buffer is empty.
+			// return true if the buffer is empty. TopNBuffer 是空的，直接返回 true
 			return true;
 		} else {
 			RowData worstKey = worstEntry.getKey();
+			//执行 TopN 比较器
 			int compare = comparator.compare(sortKey, worstKey);
 			if (compare < 0) {
+				// 如果满足条件，可以放到 TopNBuffer 中
 				return true;
 			} else {
+				// 到达的数据条数还没有达到默认的 TopN 大小 100，也可以放到 TopNBuffer 中
 				return buffer.getCurrentTopNum() < getDefaultTopNSize();
 			}
 		}
@@ -236,11 +283,11 @@ public abstract class AbstractTopNFunction extends KeyedProcessFunctionWithClean
 
 	protected void registerMetric(long heapSize) {
 		getRuntimeContext().getMetricGroup().<Double, Gauge<Double>>gauge(
-				"topn.cache.hitRate",
-				() -> requestCount == 0 ? 1.0 : Long.valueOf(hitCount).doubleValue() / requestCount);
+			"topn.cache.hitRate",
+			() -> requestCount == 0 ? 1.0 : Long.valueOf(hitCount).doubleValue() / requestCount);
 
 		getRuntimeContext().getMetricGroup().<Long, Gauge<Long>>gauge(
-				"topn.cache.size", () -> heapSize);
+			"topn.cache.size", () -> heapSize);
 	}
 
 	protected void collectInsert(Collector<RowData> out, RowData inputRow, long rank) {
@@ -302,9 +349,19 @@ public abstract class AbstractTopNFunction extends KeyedProcessFunctionWithClean
 		return rankStart > 1;
 	}
 
+	/**
+	 * 构建 output row
+	 *
+	 * @param inputRow input row
+	 * @param rank     排位序号
+	 * @param rowKind  描述一行 changelog 的行为种类
+	 * @return {@link RowData}
+	 */
 	private RowData createOutputRow(RowData inputRow, long rank, RowKind rowKind) {
 		if (outputRankNumber) {
+			// 需要输出 rank number
 			GenericRowData rankRow = new GenericRowData(1);
+			// 第 0 个字段设置为排位序号，将 rank 专门放置在一个 RowData 中
 			rankRow.setField(0, rank);
 
 			outputRow.replace(inputRow, rankRow);

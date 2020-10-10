@@ -51,6 +51,7 @@ import java.util.TreeMap;
 
 /**
  * A TopN function could handle updating stream.
+ * 可撤回 TopN function，输入流的数据可以是任何操作
  *
  * <p>Input stream can contain any change kind: INSERT, DELETE, UPDATE_BEFORE and UPDATE_AFTER.
  */
@@ -70,9 +71,15 @@ public class RetractableTopNFunction extends AbstractTopNFunction {
 	private final boolean lenient = true;
 
 	// a map state stores mapping from sort key to records list
+	/**
+	 * RowData <->  相同的 RowData list，状态后端远程维护
+	 */
 	private transient MapState<RowData, List<RowData>> dataState;
 
 	// a sorted map stores mapping from sort key to records count
+	/**
+	 * RowData <-> 对应的记录个数，ValueState 中记录有序的 RowData
+	 */
 	private transient ValueState<SortedMap<RowData, Long>> treeMap;
 
 	// The util to compare two RowData equals to each other.
@@ -124,15 +131,22 @@ public class RetractableTopNFunction extends AbstractTopNFunction {
 		// register state-cleanup timer
 		registerProcessingCleanupTimer(ctx, currentTime);
 		initRankEnd(input);
+
+		// 从状态后端中获取有序 RowData 的集合
 		SortedMap<RowData, Long> sortedMap = treeMap.value();
 		if (sortedMap == null) {
+			// 如果为 null，则新建一个，指定 sortKey comparator
 			sortedMap = new TreeMap<>(sortKeyComparator);
 		}
+
 		RowData sortKey = sortKeySelector.getKey(input);
+		// RowKind.INSERT 或 RowKind.UPDATE_AFTER
 		boolean isAccumulate = RowDataUtil.isAccumulateMsg(input);
-		input.setRowKind(RowKind.INSERT); // erase row kind for further state accessing
+		// erase row kind for further state accessing
+		input.setRowKind(RowKind.INSERT);
+
 		if (isAccumulate) {
-			// update sortedMap
+			// update sortedMap，记录当前 sortKey 的记录数到状态后端
 			if (sortedMap.containsKey(sortKey)) {
 				sortedMap.put(sortKey, sortedMap.get(sortKey) + 1);
 			} else {
@@ -147,6 +161,8 @@ public class RetractableTopNFunction extends AbstractTopNFunction {
 			} else {
 				emitRecordsWithoutRowNumber(sortedMap, sortKey, input, out);
 			}
+
+			// 同步更新到状态后端
 			// update data state
 			List<RowData> inputs = dataState.get(sortKey);
 			if (inputs == null) {
@@ -156,7 +172,7 @@ public class RetractableTopNFunction extends AbstractTopNFunction {
 			inputs.add(input);
 			dataState.put(sortKey, inputs);
 		} else {
-			// emit updates first
+			// emit updates first，先输出 update 操作，-U 代表执行撤回操作
 			if (outputRankNumber || hasOffset()) {
 				// the without-number-algorithm can't handle topN with offset,
 				// so use the with-number-algorithm to handle offset
@@ -187,6 +203,7 @@ public class RetractableTopNFunction extends AbstractTopNFunction {
 			}
 
 		}
+		// 更新状态后端中记录的 sortedMap
 		treeMap.update(sortedMap);
 	}
 
@@ -212,6 +229,7 @@ public class RetractableTopNFunction extends AbstractTopNFunction {
 			if (!findsSortKey && key.equals(sortKey)) {
 				currentRank += entry.getValue();
 				currentRow = inputRow;
+				// 从 sortedMap 中找到当前的 sortKey
 				findsSortKey = true;
 			} else if (findsSortKey) {
 				List<RowData> inputs = dataState.get(key);
@@ -225,10 +243,10 @@ public class RetractableTopNFunction extends AbstractTopNFunction {
 				} else {
 					int i = 0;
 					while (i < inputs.size() && isInRankEnd(currentRank)) {
-						RowData prevRow = inputs.get(i);
+						RowData prevRow = inputs.get(i); // 取出前一个row
 						collectUpdateBefore(out, prevRow, currentRank);
-						collectUpdateAfter(out, currentRow, currentRank);
-						currentRow = prevRow;
+						collectUpdateAfter(out, currentRow, currentRank); //输出当前行
+						currentRow = prevRow; // 前一行赋给当前行
 						currentRank += 1;
 						i++;
 					}
@@ -330,7 +348,7 @@ public class RetractableTopNFunction extends AbstractTopNFunction {
 
 					}
 					if (inputs.isEmpty()) {
-						dataState.remove(key);
+						dataState.remove(key); // 将撤回的行从 sortedMap 中移除
 					} else {
 						dataState.put(key, inputs);
 					}
@@ -339,8 +357,10 @@ public class RetractableTopNFunction extends AbstractTopNFunction {
 				List<RowData> inputs = dataState.get(key);
 				int i = 0;
 				while (i < inputs.size() && isInRankEnd(currentRank)) {
-					RowData currentRow = inputs.get(i);
+					RowData currentRow = inputs.get(i); // 上一行作为当前行
+					// 处理上一条数据
 					collectUpdateBefore(out, prevRow, currentRank);
+					// 输出当前行
 					collectUpdateAfter(out, currentRow, currentRank);
 					prevRow = currentRow;
 					currentRank += 1;

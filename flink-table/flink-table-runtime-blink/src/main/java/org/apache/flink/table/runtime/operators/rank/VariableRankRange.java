@@ -22,10 +22,14 @@ import java.util.List;
 
 /**
  * changing rank limit depends on input.
+ * rank 范围由输入的数据中的某一个字段决定
  */
 public class VariableRankRange implements RankRange {
 
 	private static final long serialVersionUID = 5579785886506433955L;
+	/**
+	 * rankEnd 在输入数据中对应的下标索引
+	 */
 	private int rankEndIndex;
 
 	public VariableRankRange(int rankEndIndex) {

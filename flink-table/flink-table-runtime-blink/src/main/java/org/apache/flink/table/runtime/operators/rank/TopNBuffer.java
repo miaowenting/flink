@@ -45,6 +45,7 @@ class TopNBuffer implements Serializable {
 	TopNBuffer(Comparator<RowData> sortKeyComparator, Supplier<Collection<RowData>> valueSupplier) {
 		this.valueSupplier = valueSupplier;
 		this.sortKeyComparator = sortKeyComparator;
+		// 利用 TreeMap 实现 LRU 缓存
 		this.treeMap = new TreeMap(sortKeyComparator);
 	}
 

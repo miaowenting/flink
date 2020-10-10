@@ -24,6 +24,7 @@ import org.apache.flink.table.data.binary.BinaryRowData;
 import org.apache.flink.table.runtime.generated.RecordEqualiser;
 
 /**
+ * 判断 2 个 RowData 是否相等的通用类，BinaryRowData 之间比较，GenericRowData 之间比较
  * A utility class to check whether two RowData are equal.
  * Note: Only support to compare two BinaryRows or two GenericRows.
  */

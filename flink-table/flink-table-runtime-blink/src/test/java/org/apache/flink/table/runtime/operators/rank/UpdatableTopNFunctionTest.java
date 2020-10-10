@@ -18,6 +18,7 @@
 
 package org.apache.flink.table.runtime.operators.rank;
 
+import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.util.OneInputStreamOperatorTestHarness;
 import org.apache.flink.table.data.RowData;
 
@@ -25,6 +26,7 @@ import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import static org.apache.flink.table.runtime.util.StreamRecordUtils.deleteRecord;
 import static org.apache.flink.table.runtime.util.StreamRecordUtils.insertRecord;
@@ -42,6 +44,7 @@ public class UpdatableTopNFunctionTest extends TopNFunctionTestBase {
 			RankRange rankRange,
 			boolean generateUpdateBefore,
 			boolean outputRankNumber) {
+
 		return new UpdatableTopNFunction(
 			minTime.toMilliseconds(),
 			maxTime.toMilliseconds(),
@@ -59,7 +62,10 @@ public class UpdatableTopNFunctionTest extends TopNFunctionTestBase {
 	@Test
 	public void testVariableRankRange() throws Exception {
 		AbstractTopNFunction func = createFunction(RankType.ROW_NUMBER,
-				new VariableRankRange(1), true, false);
+				// TopN 的集合大小随着数据动态变化
+				new VariableRankRange(1),
+			true,
+			false);
 		OneInputStreamOperatorTestHarness<RowData, RowData> testHarness = createTestHarness(func);
 		testHarness.open();
 		testHarness.processElement(insertRecord("book", 2L, 19));
@@ -68,6 +74,12 @@ public class UpdatableTopNFunctionTest extends TopNFunctionTestBase {
 		testHarness.processElement(updateAfterRecord("fruit", 1L, 33));
 		testHarness.processElement(updateAfterRecord("fruit", 1L, 22));
 		testHarness.close();
+
+		ConcurrentLinkedQueue<Object> output = testHarness.getOutput();
+		for (Object o : output) {
+			StreamRecord streamRecord = (StreamRecord) o;
+			System.out.println("Output element -> " + streamRecord.getValue());
+		}
 
 		List<Object> expectedOutput = new ArrayList<>();
 		expectedOutput.add(insertRecord("book", 2L, 19));

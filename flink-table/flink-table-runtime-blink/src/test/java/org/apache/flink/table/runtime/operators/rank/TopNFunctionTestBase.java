@@ -58,26 +58,30 @@ abstract class TopNFunctionTestBase {
 	long cacheSize = 10000L;
 
 	RowDataTypeInfo inputRowType = new RowDataTypeInfo(
-			new VarCharType(VarCharType.MAX_LENGTH),
-			new BigIntType(),
-			new IntType());
+		new VarCharType(VarCharType.MAX_LENGTH),
+		new BigIntType(),
+		new IntType());
 
+	// key comparator 类实例生成器
 	static GeneratedRecordComparator sortKeyComparator = new GeneratedRecordComparator("", "", new Object[0]) {
 
 		private static final long serialVersionUID = 1434685115916728955L;
 
 		@Override
 		public RecordComparator newInstance(ClassLoader classLoader) {
-
+            // compare(RowData o1, RowData o2) 方法中比较 o1 和 o2 的第 0 个元素，从小到大比较
 			return IntRecordComparator.INSTANCE;
 		}
 	};
 
+	// key selector，比较 RowData 中的第 2 位置的元素
 	private int sortKeyIdx = 2;
 
-	BinaryRowDataKeySelector sortKeySelector = new BinaryRowDataKeySelector(new int[] { sortKeyIdx },
-			inputRowType.getLogicalTypes());
+	BinaryRowDataKeySelector sortKeySelector = new BinaryRowDataKeySelector(new int[]{sortKeyIdx},
+		inputRowType.getLogicalTypes());
 
+
+	// RowData 对象是否相等的判断类实例生成器
 	static GeneratedRecordEqualiser generatedEqualiser = new GeneratedRecordEqualiser("", "", new Object[0]) {
 
 		private static final long serialVersionUID = 8932460173848746733L;
@@ -90,31 +94,35 @@ abstract class TopNFunctionTestBase {
 
 	private int partitionKeyIdx = 0;
 
-	private BinaryRowDataKeySelector keySelector = new BinaryRowDataKeySelector(new int[] { partitionKeyIdx },
-			inputRowType.getLogicalTypes());
+	private BinaryRowDataKeySelector keySelector = new BinaryRowDataKeySelector(new int[]{partitionKeyIdx},
+		inputRowType.getLogicalTypes());
 
 	private RowDataTypeInfo outputTypeWithoutRowNumber = inputRowType;
 
 	private RowDataTypeInfo outputTypeWithRowNumber = new RowDataTypeInfo(
-			new VarCharType(VarCharType.MAX_LENGTH),
-			new BigIntType(),
-			new IntType(),
-			new BigIntType());
+		new VarCharType(VarCharType.MAX_LENGTH),
+		new BigIntType(),
+		new IntType(),
+		new BigIntType());
 
+	// TopN 结果断言，不带 RowNumber
 	RowDataHarnessAssertor assertorWithoutRowNumber = new RowDataHarnessAssertor(
-			outputTypeWithoutRowNumber.getFieldTypes(),
-			new GenericRowRecordSortComparator(sortKeyIdx, outputTypeWithoutRowNumber.getLogicalTypes()[sortKeyIdx]));
+		outputTypeWithoutRowNumber.getFieldTypes(),
+		new GenericRowRecordSortComparator(sortKeyIdx, outputTypeWithoutRowNumber.getLogicalTypes()[sortKeyIdx]));
 
+	// TopN 结果断言，带 RowNumber
 	RowDataHarnessAssertor assertorWithRowNumber = new RowDataHarnessAssertor(
-			outputTypeWithRowNumber.getFieldTypes(),
-			new GenericRowRecordSortComparator(sortKeyIdx, outputTypeWithRowNumber.getLogicalTypes()[sortKeyIdx]));
+		outputTypeWithRowNumber.getFieldTypes(),
+		new GenericRowRecordSortComparator(sortKeyIdx, outputTypeWithRowNumber.getLogicalTypes()[sortKeyIdx]));
 
 	// rowKey only used in UpdateRankFunction
 	private int rowKeyIdx = 1;
-	BinaryRowDataKeySelector rowKeySelector = new BinaryRowDataKeySelector(new int[] { rowKeyIdx },
-			inputRowType.getLogicalTypes());
+	BinaryRowDataKeySelector rowKeySelector = new BinaryRowDataKeySelector(new int[]{rowKeyIdx},
+		inputRowType.getLogicalTypes());
 
-	/** RankEnd column must be long, int or short type, but could not be string type yet. */
+	/**
+	 * RankEnd column must be long, int or short type, but could not be string type yet.
+	 */
 	@Test(expected = UnsupportedOperationException.class)
 	public void testInvalidVariableRankRangeWithIntType() throws Exception {
 		AbstractTopNFunction func = createFunction(RankType.ROW_NUMBER, new VariableRankRange(0), true, false);
@@ -169,13 +177,13 @@ abstract class TopNFunctionTestBase {
 		expectedOutput.add(deleteRecord("fruit", 3L, 44));
 		expectedOutput.add(insertRecord("fruit", 5L, 22));
 		assertorWithoutRowNumber
-				.assertOutputEquals("output wrong.", expectedOutput, testHarness.getOutput());
+			.assertOutputEquals("output wrong.", expectedOutput, testHarness.getOutput());
 	}
 
 	@Test
 	public void testDisableGenerateUpdateBeforeAndOutputRankNumber() throws Exception {
 		AbstractTopNFunction func = createFunction(RankType.ROW_NUMBER, new ConstantRankRange(1, 2), false,
-				true);
+			true);
 		OneInputStreamOperatorTestHarness<RowData, RowData> testHarness = createTestHarness(func);
 		testHarness.open();
 		testHarness.processElement(insertRecord("book", 1L, 12));
@@ -205,7 +213,7 @@ abstract class TopNFunctionTestBase {
 	@Test
 	public void testOutputRankNumberWithConstantRankRange() throws Exception {
 		AbstractTopNFunction func = createFunction(RankType.ROW_NUMBER, new ConstantRankRange(1, 2), true,
-				true);
+			true);
 		OneInputStreamOperatorTestHarness<RowData, RowData> testHarness = createTestHarness(func);
 		testHarness.open();
 		testHarness.processElement(insertRecord("book", 1L, 12));
@@ -233,13 +241,13 @@ abstract class TopNFunctionTestBase {
 		expectedOutput.add(updateBeforeRecord("fruit", 3L, 44, 2L));
 		expectedOutput.add(updateAfterRecord("fruit", 4L, 33, 2L));
 		assertorWithRowNumber
-				.assertOutputEquals("output wrong.", expectedOutput, testHarness.getOutput());
+			.assertOutputEquals("output wrong.", expectedOutput, testHarness.getOutput());
 	}
 
 	@Test
 	public void testConstantRankRangeWithOffset() throws Exception {
 		AbstractTopNFunction func = createFunction(RankType.ROW_NUMBER, new ConstantRankRange(2, 2), true,
-				false);
+			false);
 		OneInputStreamOperatorTestHarness<RowData, RowData> testHarness = createTestHarness(func);
 		testHarness.open();
 		testHarness.processElement(insertRecord("book", 1L, 12));
@@ -258,7 +266,7 @@ abstract class TopNFunctionTestBase {
 		expectedOutput.add(updateBeforeRecord("fruit", 3L, 44));
 		expectedOutput.add(updateAfterRecord("fruit", 4L, 33));
 		assertorWithoutRowNumber
-				.assertOutputEquals("output wrong.", expectedOutput, testHarness.getOutput());
+			.assertOutputEquals("output wrong.", expectedOutput, testHarness.getOutput());
 	}
 
 	@Test
@@ -285,13 +293,13 @@ abstract class TopNFunctionTestBase {
 		expectedOutput.add(updateBeforeRecord("fruit", 1L, 33, 1L));
 		expectedOutput.add(updateAfterRecord("fruit", 1L, 22, 1L));
 		assertorWithRowNumber
-				.assertOutputEquals("output wrong.", expectedOutput, testHarness.getOutput());
+			.assertOutputEquals("output wrong.", expectedOutput, testHarness.getOutput());
 	}
 
 	@Test
 	public void testConstantRankRangeWithoutOffset() throws Exception {
 		AbstractTopNFunction func = createFunction(RankType.ROW_NUMBER, new ConstantRankRange(1, 2), true,
-				false);
+			false);
 		OneInputStreamOperatorTestHarness<RowData, RowData> testHarness = createTestHarness(func);
 		testHarness.open();
 		testHarness.processElement(insertRecord("book", 1L, 12));
@@ -311,7 +319,7 @@ abstract class TopNFunctionTestBase {
 		expectedOutput.add(deleteRecord("fruit", 3L, 44));
 		expectedOutput.add(insertRecord("fruit", 5L, 22));
 		assertorWithoutRowNumber
-				.assertOutputEquals("output wrong.", expectedOutput, testHarness.getOutput());
+			.assertOutputEquals("output wrong.", expectedOutput, testHarness.getOutput());
 
 		// do a snapshot, data could be recovered from state
 		OperatorSubtaskState snapshot = testHarness.snapshot(0L, 0);
@@ -329,13 +337,14 @@ abstract class TopNFunctionTestBase {
 		expectedOutput.add(deleteRecord("book", 1L, 12));
 		expectedOutput.add(insertRecord("book", 5L, 10));
 		assertorWithoutRowNumber
-				.assertOutputEquals("output wrong.", expectedOutput, testHarness.getOutput());
+			.assertOutputEquals("output wrong.", expectedOutput, testHarness.getOutput());
 	}
 
 	OneInputStreamOperatorTestHarness<RowData, RowData> createTestHarness(
-			AbstractTopNFunction rankFunction)
-			throws Exception {
+		AbstractTopNFunction rankFunction)
+		throws Exception {
 		KeyedProcessOperator<RowData, RowData, RowData> operator = new KeyedProcessOperator<>(rankFunction);
+		// KeyedProcessOperator 有实现 KeyContext 接口，遍历消费数据之后传递给 TopNFunction
 		rankFunction.setKeyContext(operator);
 		return new KeyedOneInputStreamOperatorTestHarness<>(operator, keySelector, keySelector.getProducedType());
 	}

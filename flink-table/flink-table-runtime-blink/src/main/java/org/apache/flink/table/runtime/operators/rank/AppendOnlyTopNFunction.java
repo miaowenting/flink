@@ -51,32 +51,61 @@ public class AppendOnlyTopNFunction extends AbstractTopNFunction {
 
 	private static final Logger LOG = LoggerFactory.getLogger(AppendOnlyTopNFunction.class);
 
+	/**
+	 * sortKey 字段类型
+	 */
 	private final RowDataTypeInfo sortKeyType;
+	/**
+	 * input row 的序列化类
+	 */
 	private final TypeSerializer<RowData> inputRowSer;
 	private final long cacheSize;
 
 	// a map state stores mapping from sort key to records list which is in topN
+	/**
+	 * sortKey <-> 在 TopN 中的 RowData list
+	 */
 	private transient MapState<RowData, List<RowData>> dataState;
 
 	// the buffer stores mapping from sort key to records list, a heap mirror to dataState
+	/**
+	 * 当前 sortKey 对应的 TopNBuffer
+	 */
 	private transient TopNBuffer buffer;
 
 	// the kvSortedMap stores mapping from partition key to it's buffer
+	/**
+	 * sortKey <-> TopNBuffer
+	 */
 	private transient Map<RowData, TopNBuffer> kvSortedMap;
 
+	/**
+	 * 构造函数
+	 *
+	 * @param minRetentionTime                 最小保留时间戳
+	 * @param maxRetentionTime                 最大保留时间戳
+	 * @param inputRowType                     输入的行数据格式
+	 * @param sortKeyGeneratedRecordComparator 排序 key 比较器
+	 * @param sortKeySelector                  排序 key 选择器
+	 * @param rankType                         排序类型，streaming table 仅支持 ROW_NUMBER
+	 * @param rankRange                        {@link RankRange}
+	 * @param generateUpdateBefore
+	 * @param outputRankNumber                 是否输出 topN 的序号
+	 * @param cacheSize                        总的缓存大小
+	 */
 	public AppendOnlyTopNFunction(
-			long minRetentionTime,
-			long maxRetentionTime,
-			RowDataTypeInfo inputRowType,
-			GeneratedRecordComparator sortKeyGeneratedRecordComparator,
-			RowDataKeySelector sortKeySelector,
-			RankType rankType,
-			RankRange rankRange,
-			boolean generateUpdateBefore,
-			boolean outputRankNumber,
-			long cacheSize) {
+		long minRetentionTime,
+		long maxRetentionTime,
+		RowDataTypeInfo inputRowType,
+		GeneratedRecordComparator sortKeyGeneratedRecordComparator,
+		RowDataKeySelector sortKeySelector,
+		RankType rankType,
+		RankRange rankRange,
+		boolean generateUpdateBefore,
+		boolean outputRankNumber,
+		long cacheSize) {
 		super(minRetentionTime, maxRetentionTime, inputRowType, sortKeyGeneratedRecordComparator, sortKeySelector,
-				rankType, rankRange, generateUpdateBefore, outputRankNumber);
+			rankType, rankRange, generateUpdateBefore, outputRankNumber);
 		this.sortKeyType = sortKeySelector.getProducedType();
 		this.inputRowSer = inputRowType.createSerializer(new ExecutionConfig());
 		this.cacheSize = cacheSize;
@@ -84,13 +113,17 @@ public class AppendOnlyTopNFunction extends AbstractTopNFunction {
 
 	public void open(Configuration parameters) throws Exception {
 		super.open(parameters);
+		// LRU的缓存大小=总的缓存大小/topN的缓存大小
 		int lruCacheSize = Math.max(1, (int) (cacheSize / getDefaultTopNSize()));
+		// 根据 key 缓存 LRU list
 		kvSortedMap = new LRUMap<>(lruCacheSize);
 		LOG.info("Top{} operator is using LRU caches key-size: {}", getDefaultTopNSize(), lruCacheSize);
 
+		// 根据 key 记录当前的 TopN list
+		// RowDataTypeInfo
 		ListTypeInfo<RowData> valueTypeInfo = new ListTypeInfo<>(inputRowType);
 		MapStateDescriptor<RowData, List<RowData>> mapStateDescriptor = new MapStateDescriptor<>(
-				"data-state-with-append", sortKeyType, valueTypeInfo);
+			"data-state-with-append", sortKeyType, valueTypeInfo);
 		dataState = getRuntimeContext().getMapState(mapStateDescriptor);
 
 		// metrics
@@ -99,6 +132,7 @@ public class AppendOnlyTopNFunction extends AbstractTopNFunction {
 
 	@Override
 	public void processElement(RowData input, Context context, Collector<RowData> out) throws Exception {
+		// 获取当前时间，记录在上下文的计时器中
 		long currentTime = context.timerService().currentProcessingTime();
 		// register state-cleanup timer
 		registerProcessingCleanupTimer(context, currentTime);
@@ -106,8 +140,10 @@ public class AppendOnlyTopNFunction extends AbstractTopNFunction {
 		initHeapStates();
 		initRankEnd(input);
 
+		// 从输入的数据中抽取 sortKey
 		RowData sortKey = sortKeySelector.getKey(input);
 		// check whether the sortKey is in the topN range
+		// 根据 sortKey 判断当前数据是否应该被放到 TopNBuffer 中
 		if (checkSortKeyInBufferRange(sortKey, buffer)) {
 			// insert sort key into buffer
 			buffer.put(sortKey, inputRowSer.copy(input));
@@ -116,6 +152,7 @@ public class AppendOnlyTopNFunction extends AbstractTopNFunction {
 			// copy a new collection to avoid mutating state values, see CopyOnWriteStateMap,
 			// otherwise, the result might be corrupt.
 			// don't need to perform a deep copy, because RowData elements will not be updated
+			// 同步记录到 MapState 中
 			dataState.put(sortKey, new ArrayList<>(inputs));
 			if (outputRankNumber || hasOffset()) {
 				// the without-number-algorithm can't handle topN with offset,
@@ -129,9 +166,9 @@ public class AppendOnlyTopNFunction extends AbstractTopNFunction {
 
 	@Override
 	public void onTimer(
-			long timestamp,
-			OnTimerContext ctx,
-			Collector<RowData> out) throws Exception {
+		long timestamp,
+		OnTimerContext ctx,
+		Collector<RowData> out) throws Exception {
 		if (stateCleaningEnabled) {
 			// cleanup cache
 			kvSortedMap.remove(keyContext.getCurrentKey());
@@ -141,12 +178,16 @@ public class AppendOnlyTopNFunction extends AbstractTopNFunction {
 
 	private void initHeapStates() throws Exception {
 		requestCount += 1;
+		// 从 KeyContext 中获取当前的key
 		RowData currentKey = (RowData) keyContext.getCurrentKey();
+		// 取出 key 对应的 TopNBuffer
 		buffer = kvSortedMap.get(currentKey);
 		if (buffer == null) {
+			// buffer 为 null，则为此 key 构建 TopNBuffer，为其设置 key comparator
 			buffer = new TopNBuffer(sortKeyComparator, ArrayList::new);
 			kvSortedMap.put(currentKey, buffer);
 			// restore buffer
+			// 读取 state 中记录的 TopN list，塞到这个 TopNBuffer 里
 			Iterator<Map.Entry<RowData, List<RowData>>> iter = dataState.iterator();
 			if (iter != null) {
 				while (iter.hasNext()) {
@@ -158,6 +199,7 @@ public class AppendOnlyTopNFunction extends AbstractTopNFunction {
 				}
 			}
 		} else {
+			// buffer 不为 null，记录命中一次 TopNBuffer 缓存
 			hitCount += 1;
 		}
 	}
@@ -208,6 +250,7 @@ public class AppendOnlyTopNFunction extends AbstractTopNFunction {
 
 	private void processElementWithoutRowNumber(RowData input, Collector<RowData> out) throws Exception {
 		// remove retired element
+		// 当前 TopNBuffer 中缓存的数据条数大于 TopN 的 N
 		if (buffer.getCurrentTopNum() > rankEnd) {
 			Map.Entry<RowData, Collection<RowData>> lastEntry = buffer.lastEntry();
 			RowData lastKey = lastEntry.getKey();
@@ -216,17 +259,21 @@ public class AppendOnlyTopNFunction extends AbstractTopNFunction {
 			int size = lastList.size();
 			// remove last one
 			if (size <= 1) {
+				// 移除最后一个元素
 				buffer.removeAll(lastKey);
 				dataState.remove(lastKey);
 			} else {
+				// 移除大于 TopN 的 N 之后的元素
 				buffer.removeLast();
 				// last element has been removed from lastList, we have to copy a new collection
 				// for lastList to avoid mutating state values, see CopyOnWriteStateMap,
 				// otherwise, the result might be corrupt.
 				// don't need to perform a deep copy, because RowData elements will not be updated
+				// 更新状态后端
 				dataState.put(lastKey, new ArrayList<>(lastList));
 			}
 			if (size == 0 || input.equals(lastElement)) {
+				// input 的数据和 TopNBuffer 中的最后一个元素相同，则直接返回
 				return;
 			} else {
 				// lastElement shouldn't be null

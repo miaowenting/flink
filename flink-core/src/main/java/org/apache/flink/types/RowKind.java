@@ -37,6 +37,8 @@ public enum RowKind {
 	/**
 	 * Update operation with the previous content of the updated row.
 	 *
+	 * -U 应该和 +U 同时出现，代表 retract 前一行先，以防非幂等更新
+	 *
 	 * <p>This kind SHOULD occur together with {@link #UPDATE_AFTER} for modelling an update that needs
 	 * to retract the previous row first. It is useful in cases of a non-idempotent update, i.e., an
 	 * update of a row that is not uniquely identifiable by a key.
