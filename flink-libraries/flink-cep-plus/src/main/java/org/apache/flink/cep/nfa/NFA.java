@@ -93,9 +93,6 @@ public class NFA<T> {
     // 因为需要动态修改所以改为 final ->
 	private Map<String, State<T>> states;
 
-	public void setStatesMap(Map<String, State<T>> states) {
-		this.states = states;
-	}
 	public Map<String, State<T>> getStatesMap(){
 		return states;
 	}
