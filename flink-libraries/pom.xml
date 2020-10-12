@@ -40,6 +40,7 @@ under the License.
 		<module>flink-cep</module>
 		<module>flink-cep-scala</module>
 		<module>flink-state-processing-api</module>
+		<module>flink-cep-plus</module>
 	</modules>
 
 	<!-- override these root dependencies as 'provided', so they don't end up

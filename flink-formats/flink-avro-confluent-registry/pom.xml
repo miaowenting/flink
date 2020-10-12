@@ -33,6 +33,7 @@ under the License.
 		<confluent.schema.registry.version>4.1.0</confluent.schema.registry.version>
 	</properties>
 
+	<!-- 引入 confluent 仓库地址 -->
 	<repositories>
 		<repository>
 			<id>confluent</id>
